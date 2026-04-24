@@ -1,6 +1,5 @@
 ﻿#pragma once
 #include "Component/SceneComponent.h"
-#include "Render/Resource/Texture2DArrayPool.h"
 
 class ULightComponentBase : public USceneComponent
 {
@@ -29,6 +28,4 @@ protected:
 	FVector4 LightColor = { 1.0f,1.0f,1.0f,1.0f };
 	bool bVisible = true;
 	bool bCastShadow = true;
-
-	FTexture2DArrayPool::Entry* ShadowMapEntry;
 };

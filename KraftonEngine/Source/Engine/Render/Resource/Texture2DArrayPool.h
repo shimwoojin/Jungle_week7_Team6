@@ -31,7 +31,7 @@ public:
 		FTexture2DArrayPool* WhreAreYouFrom = nullptr;
 
 		void ClearDSV(ID3D11DeviceContext* InDeviceContext);
-		void ReturnToHome() { WhreAreYouFrom->ReuseEntry(this); }
+		void LetsGoHome() { WhreAreYouFrom->ReuseEntry(this); }
 	};
 
 	FTexture2DArrayPool::Entry* GetEntry();

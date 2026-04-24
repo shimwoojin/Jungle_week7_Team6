@@ -15,7 +15,10 @@ void ULightComponent::Serialize(FArchive& Ar)
 
 FTexture2DArrayPool::Entry* ULightComponent::GetShadowEntry()
 {
-	return nullptr;
+	if (!ShadowMapEntry)
+		ShadowMapEntry = FTexture2DArrayPoolManager::Get().GetTexturePool(GetShadowMapTextureType(), 1024)->GetEntry();
+
+	return ShadowMapEntry;
 }
 
 void ULightComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps)

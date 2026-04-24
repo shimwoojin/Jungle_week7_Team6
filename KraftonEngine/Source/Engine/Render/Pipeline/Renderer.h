@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 /*
 	실제 렌더링을 담당하는 Class 입니다. (Rendering 최상위 클래스)
@@ -14,6 +14,7 @@
 #include "Render/Resource/RenderResources.h"
 #include "Render/Culling/TileBasedLightCulling.h"
 #include "Render/Culling/ClusteredLightCuller.h"
+#include "Render/Resource/Texture2DArrayPool.h"
 
 class FScene;
 

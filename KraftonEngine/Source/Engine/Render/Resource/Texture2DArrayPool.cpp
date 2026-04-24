@@ -207,4 +207,14 @@ FTexture2DArrayPool* FTexture2DArrayPoolManager::GetTexturePool(ArrayType InType
 
 		return DefaultMap[InSize].get();
 	}
+
+	if (InType == ArrayType::CubeMap)
+	{
+		if (!CubeMap.contains(InSize))
+			CubeMap[InSize] = std::make_unique<FTexture2DArrayPool>(Device, DeviceContext, InSize, 16, InType);
+
+		return CubeMap[InSize].get();
+	}
+
+	throw "How";
 }
