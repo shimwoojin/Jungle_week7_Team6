@@ -37,6 +37,8 @@ public:
 		bool bInUsed = false;
 
 		void ClearDSV(ID3D11DeviceContext* InDeviceContext);
+
+		FTexture2DArrayPool* WhreAreYouFrom = nullptr;
 	};
 
 	FTexture2DArrayPool::Entry* GetEntry();
