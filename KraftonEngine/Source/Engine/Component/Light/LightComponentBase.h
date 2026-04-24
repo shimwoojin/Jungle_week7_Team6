@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "Component/SceneComponent.h"
-
+#include "Render/Resource/Texture2DArrayPool.h"
 
 class ULightComponentBase : public USceneComponent
 {
@@ -30,6 +30,5 @@ protected:
 	bool bVisible = true;
 	bool bCastShadow = true;
 
-	///빠른 작업을 위한 하드 코딩
-	ShadowMap* ShadowMap;
+	FTexture2DArrayPool::Entry* ShadowMapEntry;
 };
