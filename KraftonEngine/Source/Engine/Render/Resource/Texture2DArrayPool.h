@@ -29,10 +29,10 @@ public:
 		TArray<ID3D11DepthStencilView*> DSV;
 
 		bool bInUsed = false;
-		FTexture2DArrayPool* WhreAreYouFrom = nullptr;
+		FTexture2DArrayPool* WhereAreYouFrom = nullptr;
 
 		void ClearDSV(ID3D11DeviceContext* InDeviceContext);
-		void LetsGoHome() { WhreAreYouFrom->ReuseEntry(this); }
+		void LetsGoHome() { WhereAreYouFrom->ReuseEntry(this); }
 	};
 
 	FTexture2DArrayPool::Entry* GetEntry();

@@ -34,7 +34,7 @@ FTexture2DArrayPool::Entry* FTexture2DArrayPool::GetEntry()
 
 	auto NewEntry = std::make_unique<Entry>(index);
 	ToReturn = NewEntry.get();
-	ToReturn->WhreAreYouFrom = this;
+	ToReturn->WhereAreYouFrom = this;
 
 	SetEntry(NewEntry.get());
 	Entries.push_back(std::move(NewEntry));
