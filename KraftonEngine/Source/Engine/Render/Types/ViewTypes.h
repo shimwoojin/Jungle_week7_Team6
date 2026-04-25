@@ -23,6 +23,12 @@ enum class ELightCullingMode : uint32
 	Cluster = 2
 };
 
+enum class EShadowFilterMode : uint32
+{
+	PCF = 0,
+	VSM = 1
+};
+
 struct FShowFlags
 {
 	bool bPrimitives = true;
@@ -37,6 +43,7 @@ struct FShowFlags
 	bool bFXAA = false;
 	bool bViewLightCulling = false;
 	bool bVisualize25DCulling = false;
+	bool bShadows = true;
 };
 
 // 뷰포트 카메라 프리셋 (Perspective / 6방향 Orthographic)
@@ -78,4 +85,9 @@ struct FViewportRenderOptions
 	ELightCullingMode LightCullingMode = ELightCullingMode::Cluster;
 	float HeatMapMax = 20.0f;
 	bool Enable25DCulling = true;
+
+	// Shadow debug/control 설정
+	bool bOverrideCameraWithSelectedLight = false;
+	int32 ShadowMapResolution = 1024;
+	EShadowFilterMode ShadowFilterMode = EShadowFilterMode::PCF;
 };
