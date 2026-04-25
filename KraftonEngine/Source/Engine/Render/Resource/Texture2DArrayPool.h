@@ -5,6 +5,7 @@
 #include <memory>
 #include "Core/Singleton.h"
 
+namespace WRL = Microsoft::WRL;
 enum class ArrayType : uint32
 {
 	Default,
@@ -44,9 +45,9 @@ public:
 	void ReuseEntry(Entry* Entry);
 
 private:
-	Microsoft::WRL::ComPtr<ID3D11Texture2D> CreateTexture(uint32 InArraySize);
-	void CreateSRV(Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& InSRV);
-	void CreateDSV(TArray<Microsoft::WRL::ComPtr<ID3D11DepthStencilView>>& DSVs);
+	WRL::ComPtr<ID3D11Texture2D> CreateTexture(uint32 InArraySize);
+	void CreateSRV(WRL::ComPtr<ID3D11ShaderResourceView>& InSRV);
+	void CreateDSV(TArray<WRL::ComPtr<ID3D11DepthStencilView>>& DSVs);
 
 	void SetEntry(Entry* Entry);
 
@@ -59,9 +60,9 @@ private:
 	uint32 TextureArraySize;
 	TArray<std::unique_ptr<Entry>> Entries;
 
-	Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture;
-	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SRV;
-	TArray<Microsoft::WRL::ComPtr<ID3D11DepthStencilView>> DSVs;
+	WRL::ComPtr<ID3D11Texture2D> Texture;
+	WRL::ComPtr<ID3D11ShaderResourceView> SRV;
+	TArray<WRL::ComPtr<ID3D11DepthStencilView>> DSVs;
 
 	uint32 DsvClusterSize = 1;
 	ID3D11Device* Device = nullptr;

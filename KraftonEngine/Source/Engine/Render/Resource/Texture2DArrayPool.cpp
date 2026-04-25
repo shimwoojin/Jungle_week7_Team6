@@ -48,7 +48,7 @@ void FTexture2DArrayPool::Resize(uint32 InNewSize)
 	const uint32 OldTextureArraySize = TextureArraySize;
 	const uint32 OldTotalSlices = OldTextureArraySize * DsvClusterSize;
 
-	Microsoft::WRL::ComPtr<ID3D11Texture2D> NewTexture = CreateTexture(InNewSize);
+	WRL::ComPtr<ID3D11Texture2D> NewTexture = CreateTexture(InNewSize);
 
 	for (uint32 slice = 0; slice < OldTotalSlices; ++slice)
 	{
@@ -85,7 +85,7 @@ void FTexture2DArrayPool::ReuseEntry(Entry* Entry)
 	LastFreeEntry = Entry;
 }
 
-Microsoft::WRL::ComPtr<ID3D11Texture2D> FTexture2DArrayPool::CreateTexture(uint32 InArraySize)
+WRL::ComPtr<ID3D11Texture2D> FTexture2DArrayPool::CreateTexture(uint32 InArraySize)
 {
 	D3D11_TEXTURE2D_DESC desc = {};
 	desc.Width = Size;
@@ -102,14 +102,14 @@ Microsoft::WRL::ComPtr<ID3D11Texture2D> FTexture2DArrayPool::CreateTexture(uint3
 	if (Type == ArrayType::CubeMap)
 		desc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
 
-	Microsoft::WRL::ComPtr<ID3D11Texture2D> NewTexture;
+	WRL::ComPtr<ID3D11Texture2D> NewTexture;
 	HRESULT hr = Device->CreateTexture2D(&desc, nullptr, NewTexture.GetAddressOf());
 	assert(SUCCEEDED(hr));
 
 	return NewTexture;
 }
 
-void FTexture2DArrayPool::CreateSRV(Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& InSRV)
+void FTexture2DArrayPool::CreateSRV(WRL::ComPtr<ID3D11ShaderResourceView>& InSRV)
 {
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Format = DXGI_FORMAT_R32_FLOAT; // depth 읽을 때
@@ -136,7 +136,7 @@ void FTexture2DArrayPool::CreateSRV(Microsoft::WRL::ComPtr<ID3D11ShaderResourceV
 	assert(SUCCEEDED(hr));
 }
 
-void FTexture2DArrayPool::CreateDSV(TArray<Microsoft::WRL::ComPtr<ID3D11DepthStencilView>>& DSVs)
+void FTexture2DArrayPool::CreateDSV(TArray<WRL::ComPtr<ID3D11DepthStencilView>>& DSVs)
 {
 	DSVs.clear();
 	DSVs.resize(TextureArraySize * DsvClusterSize);
