@@ -1,6 +1,7 @@
 ﻿#include "Editor/UI/EditorConsoleWidget.h"
 #include "Editor/EditorEngine.h"
 #include "Editor/Subsystem/OverlayStatSystem.h"
+#include "Editor/Viewport/LevelEditorViewportClient.h"
 #include "Object/Object.h"
 
 #include <algorithm>
@@ -158,6 +159,48 @@ void FEditorConsoleWidget::Initialize(UEditorEngine* InEditorEngine)
 			{
 				AddLog("[ERROR] Unknown stat command: '%s'\n", SubCommand.c_str());
 				AddLog("Usage: stat fps | stat memory | stat none\n");
+			}
+		});
+
+	RegisterCommand("shadow_filter", [this](const TArray<FString>& Args)
+		{
+			if (EditorEngine == nullptr)
+			{
+				AddLog("[ERROR] EditorEngine is null.\n");
+				return;
+			}
+
+			if (Args.size() < 2)
+			{
+				AddLog("Usage: shadow_filter PCF | shadow_filter VSM\n");
+				return;
+			}
+
+			FLevelEditorViewportClient* ActiveViewport = EditorEngine->GetActiveViewport();
+			if (ActiveViewport == nullptr)
+			{
+				AddLog("[ERROR] No active viewport.\n");
+				return;
+			}
+
+			FString FilterMode = Args[1];
+			std::transform(FilterMode.begin(), FilterMode.end(), FilterMode.begin(), ::toupper);
+
+			FViewportRenderOptions& RenderOptions = ActiveViewport->GetRenderOptions();
+			if (FilterMode == "PCF")
+			{
+				RenderOptions.ShadowFilterMode = EShadowFilterMode::PCF;
+				AddLog("Shadow filter set to PCF.\n");
+			}
+			else if (FilterMode == "VSM")
+			{
+				RenderOptions.ShadowFilterMode = EShadowFilterMode::VSM;
+				AddLog("Shadow filter set to VSM.\n");
+			}
+			else
+			{
+				AddLog("[ERROR] Unknown shadow filter: '%s'\n", Args[1].c_str());
+				AddLog("Usage: shadow_filter PCF | shadow_filter VSM\n");
 			}
 		});
 }
