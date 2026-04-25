@@ -3,6 +3,8 @@
 #include "Viewport/ViewportClient.h"
 #include "Render/Types/RenderTypes.h"
 #include "Render/Types/ViewTypes.h"
+#include "Math/Vector.h"
+#include "Math/Rotator.h"
 
 #include "UI/SWindow.h"
 #include <string>
@@ -72,9 +74,28 @@ public:
 
 private:
 	void TickEditorShortcuts();
+	void TickLightCameraOverride();
 	void TickInput(float DeltaTime);
 	void TickInteraction(float DeltaTime);
 	void HandleDragStart(const FRay& Ray); //픽킹 시작
+
+	struct FCameraOverrideSnapshot
+	{
+		bool bValid = false;
+		FVector Location = FVector(0.0f, 0.0f, 0.0f);
+		FVector FocusPoint = FVector(0.0f, 0.0f, 0.0f);
+		FRotator Rotation;
+		float FOV = 3.14159265358979f / 3.0f;
+		float NearZ = 0.1f;
+		float FarZ = 1000.0f;
+		float OrthoWidth = 10.0f;
+		bool bIsOrthographic = false;
+		bool bWasGizmoEnabled = true;
+		ELevelViewportType ViewportType = ELevelViewportType::Perspective;
+	};
+
+	void SaveCameraOverrideSnapshot();
+	void RestoreCameraOverrideSnapshot();
 
 private:
 	FViewport* Viewport = nullptr;
@@ -91,6 +112,8 @@ private:
 	float WindowHeight = 1080.f;
 
 	bool bIsActive = false;
+	bool bLightCameraOverrideActive = false;
+	FCameraOverrideSnapshot CameraOverrideSnapshot;
 	// 뷰포트 슬롯의 스크린 좌표 (ImGui screen space = 윈도우 클라이언트 좌표)
 	FRect ViewportScreenRect;
 };

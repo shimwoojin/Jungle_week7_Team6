@@ -13,6 +13,8 @@ public:
 
 	virtual FShadowHandleSet* GetShadowHandleSet() override;
 	FShadowMapKey GetShadowMapKey() override;
+	float GetInnerConeAngle() const { return InnerConeAngle; }
+	float GetOuterConeAngle() const { return OuterConeAngle; }
 
 protected:
 	float InnerConeAngle = 20.0f;	// Inner Cone Angle in degrees

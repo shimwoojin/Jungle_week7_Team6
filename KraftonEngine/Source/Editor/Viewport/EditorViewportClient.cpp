@@ -8,9 +8,13 @@
 #include "Engine/Runtime/WindowsWindow.h"
 
 #include "Component/CameraComponent.h"
+#include "Component/Light/LightComponent.h"
+#include "Component/Light/PointLightComponent.h"
+#include "Component/Light/SpotLightComponent.h"
 #include "Viewport/Viewport.h"
 #include "GameFramework/World.h"
 #include "Engine/Runtime/Engine.h"
+#include "Math/MathUtils.h"
 
 UWorld* FEditorViewportClient::GetWorld() const
 {
@@ -43,6 +47,9 @@ void FEditorViewportClient::DestroyCamera()
 		UObjectManager::Get().DestroyObject(Camera);
 		Camera = nullptr;
 	}
+
+	CameraOverrideSnapshot = {};
+	bLightCameraOverrideActive = false;
 }
 
 void FEditorViewportClient::ResetCamera()
@@ -135,8 +142,147 @@ void FEditorViewportClient::Tick(float DeltaTime)
 	if (!bIsActive) return;
 
 	TickEditorShortcuts();
-	TickInput(DeltaTime);
+	TickLightCameraOverride();
+	if (!bLightCameraOverrideActive)
+	{
+		TickInput(DeltaTime);
+	}
 	TickInteraction(DeltaTime);
+}
+
+void FEditorViewportClient::SaveCameraOverrideSnapshot()
+{
+	if (!Camera)
+	{
+		return;
+	}
+
+	const FCameraState& CameraState = Camera->GetCameraState();
+	const FVector CameraForward = Camera->GetForwardVector();
+	CameraOverrideSnapshot.bValid = true;
+	CameraOverrideSnapshot.Location = Camera->GetWorldLocation();
+	CameraOverrideSnapshot.FocusPoint = CameraOverrideSnapshot.Location + CameraForward * 100.0f;
+	CameraOverrideSnapshot.Rotation = Camera->GetRelativeRotation();
+	CameraOverrideSnapshot.FOV = CameraState.FOV;
+	CameraOverrideSnapshot.NearZ = CameraState.NearZ;
+	CameraOverrideSnapshot.FarZ = CameraState.FarZ;
+	CameraOverrideSnapshot.OrthoWidth = CameraState.OrthoWidth;
+	CameraOverrideSnapshot.bIsOrthographic = CameraState.bIsOrthogonal;
+	CameraOverrideSnapshot.bWasGizmoEnabled = SelectionManager ? SelectionManager->IsGizmoEnabled() : true;
+	CameraOverrideSnapshot.ViewportType = RenderOptions.ViewportType;
+}
+
+void FEditorViewportClient::RestoreCameraOverrideSnapshot()
+{
+	if (!Camera || !CameraOverrideSnapshot.bValid)
+	{
+		return;
+	}
+
+	FCameraState RestoredState = Camera->GetCameraState();
+	RestoredState.FOV = CameraOverrideSnapshot.FOV;
+	RestoredState.NearZ = CameraOverrideSnapshot.NearZ;
+	RestoredState.FarZ = CameraOverrideSnapshot.FarZ;
+	RestoredState.OrthoWidth = CameraOverrideSnapshot.OrthoWidth;
+	RestoredState.bIsOrthogonal = CameraOverrideSnapshot.bIsOrthographic;
+
+	Camera->SetCameraState(RestoredState);
+	Camera->SetWorldLocation(CameraOverrideSnapshot.Location);
+	Camera->SetRelativeRotation(CameraOverrideSnapshot.Rotation);
+	RenderOptions.ViewportType = CameraOverrideSnapshot.ViewportType;
+	if (SelectionManager)
+	{
+		SelectionManager->SetGizmoEnabled(CameraOverrideSnapshot.bWasGizmoEnabled);
+	}
+
+	CameraOverrideSnapshot = {};
+}
+
+void FEditorViewportClient::TickLightCameraOverride()
+{
+	if (!Camera || !SelectionManager)
+	{
+		if (bLightCameraOverrideActive)
+		{
+			RestoreCameraOverrideSnapshot();
+			bLightCameraOverrideActive = false;
+		}
+		return;
+	}
+
+	ULightComponent* SelectedLight = nullptr;
+	if (AActor* PrimarySelection = SelectionManager->GetPrimarySelection())
+	{
+		for (UActorComponent* Component : PrimarySelection->GetComponents())
+		{
+			if (Component && Component->IsA<ULightComponent>())
+			{
+				SelectedLight = static_cast<ULightComponent*>(Component);
+				break;
+			}
+		}
+	}
+
+	const bool bShouldOverride = RenderOptions.bOverrideCameraWithSelectedLight && SelectedLight != nullptr;
+	if (!bShouldOverride)
+	{
+		if (bLightCameraOverrideActive)
+		{
+			RestoreCameraOverrideSnapshot();
+			bLightCameraOverrideActive = false;
+		}
+		return;
+	}
+
+	if (!bLightCameraOverrideActive)
+	{
+		SaveCameraOverrideSnapshot();
+		if (SelectionManager)
+		{
+			SelectionManager->SetGizmoEnabled(false);
+		}
+		bLightCameraOverrideActive = true;
+	}
+
+	FCameraState OverrideState = Camera->GetCameraState();
+	OverrideState.NearZ = 0.1f;
+	OverrideState.FarZ = 1000.0f;
+
+	const FVector LightLocation = SelectedLight->GetWorldLocation();
+	const FVector LightForward = SelectedLight->GetForwardVector();
+	const FVector FocusPoint = CameraOverrideSnapshot.bValid
+		? CameraOverrideSnapshot.FocusPoint
+		: (LightLocation + LightForward * 100.0f);
+
+	if (SelectedLight->IsA<USpotLightComponent>())
+	{
+		const USpotLightComponent* SpotLight = static_cast<const USpotLightComponent*>(SelectedLight);
+		Camera->SetWorldLocation(LightLocation);
+		Camera->LookAt(LightLocation + LightForward);
+		OverrideState.bIsOrthogonal = false;
+		OverrideState.FOV = FMath::Clamp(SpotLight->GetOuterConeAngle() * 2.0f * FMath::DegToRad, 0.1f, 3.13f);
+		RenderOptions.ViewportType = ELevelViewportType::Perspective;
+	}
+	else if (SelectedLight->IsA<UPointLightComponent>())
+	{
+		// TODO: Point light override should support choosing and previewing all 6 cubemap faces.
+		Camera->SetWorldLocation(LightLocation);
+		Camera->LookAt(FocusPoint);
+		OverrideState.bIsOrthogonal = false;
+		OverrideState.FOV = 90.0f * FMath::DegToRad;
+		RenderOptions.ViewportType = ELevelViewportType::Perspective;
+	}
+	else
+	{
+		const float DirectionalDistance = 100.0f;
+		Camera->SetWorldLocation(FocusPoint - LightForward * DirectionalDistance);
+		Camera->LookAt(FocusPoint);
+		OverrideState.bIsOrthogonal = true;
+		OverrideState.OrthoWidth = 100.0f;
+		RenderOptions.ViewportType = ELevelViewportType::FreeOrthographic;
+	}
+
+	Camera->SetCameraState(OverrideState);
 }
 
 void FEditorViewportClient::TickEditorShortcuts()
