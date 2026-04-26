@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include "Component/SceneComponent.h"
 
-
 class ULightComponentBase : public USceneComponent
 {
 public:
@@ -22,9 +21,11 @@ public:
 	float GetIntensity() const { return Intensity; }
 	FVector4 GetLightColor() const { return LightColor; }
 	bool IsVisible() const { return bVisible; }
+	bool IsCastShadow() const { return bCastShadow; }
 
 protected:
 	float Intensity = 1.f;;
 	FVector4 LightColor = { 1.0f,1.0f,1.0f,1.0f };
 	bool bVisible = true;
+	bool bCastShadow = true;
 };

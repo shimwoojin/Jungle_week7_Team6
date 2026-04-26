@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 /*
 	실제 렌더링을 담당하는 Class 입니다. (Rendering 최상위 클래스)
@@ -37,11 +37,11 @@ public:
 	void ResetRenderStateCache() { Resources.ResetRenderStateCache(); }
 
 	// TileBasedLightCulling Dispatch에 필요한 리소스 접근자
-	ID3D11Buffer*             GetFrameBuffer()         { return Resources.FrameBuffer.GetBuffer(); }
-	ID3D11ShaderResourceView* GetLightBufferSRV()      { return Resources.ForwardLights.LightBufferSRV; }
-	FTileCullingResource&     GetTileCullingResource() { return Resources.TileCullingResource; }
-	uint32                    GetNumLights()    const  { return Resources.LastNumLights; }
-	FTileBasedLightCulling&   GetTileBaseCulling()     { return TileBasedCulling; }
+	ID3D11Buffer* GetFrameBuffer() { return Resources.FrameBuffer.GetBuffer(); }
+	ID3D11ShaderResourceView* GetLightBufferSRV() { return Resources.ForwardLights.LightBufferSRV; }
+	FTileCullingResource& GetTileCullingResource() { return Resources.TileCullingResource; }
+	uint32 GetNumLights() const { return Resources.LastNumLights; }
+	FTileBasedLightCulling& GetTileBaseCulling() { return TileBasedCulling; }
 
 	void BindTileCullingResources() { Resources.BindTileCullingBuffers(Device); }
 	void UnbindTileCullingResources() { Resources.UnbindTileCullingBuffers(Device); }
@@ -50,7 +50,24 @@ public:
 	void UnbindClusterCullingResources();
 
 private:
-	// 패스 루프 종료 후 시스템 텍스처 언바인딩 + 캐시 정리
+	//ShadowMap 렌더링에 필요한 정보 담는 녀석
+	struct FShadowRenderTask
+	{
+		FMatrix LightVP = FMatrix::Identity;
+		FConvexVolume ShadowFrustum;
+		D3D11_VIEWPORT Viewport = {};
+		ID3D11DepthStencilView* DSV = nullptr;
+	};
+
+	//ShadowMap 렌더링에 필요한 정보 담는 녀석들을 담는 녀석
+	struct FShadowPassData
+	{
+		FShadowFrameBindingData BindingData;
+		TArray<FShadowRenderTask> RenderTasks;
+	};
+
+	void BuildShadowPassData(const FFrameContext& Frame, const FScene& Scene, FShadowPassData& OutShadowPassData);
+	void RenderShadowPass(const FFrameContext& Frame, const FScene& Scene, const FShadowPassData& ShadowPassData);
 	void CleanupPassState(FStateCache& Cache);
 
 private:
@@ -60,7 +77,8 @@ private:
 	FDrawCommandBuilder Builder;
 	FPassRenderStateTable PassRenderStateTable;
 	FPassEventBuilder PassEventBuilder;
-	
+	FConstantBuffer ShadowPassBuffer;
+
 	FTileBasedLightCulling TileBasedCulling;
 	FClusteredLightCuller ClusteredLightCuller;
 };

@@ -1,6 +1,8 @@
 #ifndef FORWARD_LIGHT_DATA_HLSLI
 #define FORWARD_LIGHT_DATA_HLSLI
 
+// Shared forward-lighting GPU data. Must stay byte-compatible with
+// C++ Source/Engine/Render/Pipeline/ForwardLightData.h.
 // =============================================================================
 // Forward Shading 라이팅 구조체 & 리소스 바인딩
 // C++ ForwardLightData.h 와 바이트 단위로 1:1 대응
@@ -12,16 +14,15 @@
 //   t10       StructuredBuffer<uint2>       (TileLightGrid)
 // =============================================================================
 
-// ── Light Type 상수 ──
 #define LIGHT_TYPE_POINT 0
-#define LIGHT_TYPE_SPOT  1
+#define LIGHT_TYPE_SPOT 1
+#define LIGHT_TYPE_DIRECTIONAL 2
 
-// ── Tile Culling 상수 ──
-#define TILE_SIZE             16
-#define MAX_LIGHTS_PER_TILE   256
+#define TILE_SIZE 16
+#define MAX_LIGHTS_PER_TILE 256
 
-#define LIGHT_CULLING_OFF     0
-#define LIGHT_CULLING_TILE    1
+#define LIGHT_CULLING_OFF 0
+#define LIGHT_CULLING_TILE 1
 #define LIGHT_CULLING_CLUSTER 2
 
 // =============================================================================
@@ -32,39 +33,54 @@ struct FAABB
     float4 minPt;
     float4 maxPt;
 };
+
 struct FAmbientLightInfo
 {
-    float4 Color; // 16B
-    float Intensity; //  4B
-    float3 _padA; // 12B → 32B
+    float4 Color;
+    float Intensity;
+    float3 _padA;
 };
 
 struct FDirectionalLightInfo
 {
-    float4 Color; // 16B
-    float3 Direction; // 12B
-    float Intensity; //  4B → 32B
+    float4 Color;
+    float3 Direction;
+    float Intensity;
+    int ShadowIndex;
+    float3 _padD;
 };
 
-// Point/Spot 통합 POD — LightType으로 분기
+struct FShadowInfo
+{
+    uint Type;
+    uint ArrayIndex;
+    uint LightIndex;
+    uint Padding0;
+
+    row_major float4x4 LightVP;
+    float4 SampleData;
+};
+
 struct FLightInfo
 {
-    float4 Color; // 16B
+    float4 Color;
 
-    float3 Position; // 12B
-    float Intensity; //  4B
+    float3 Position;
+    float Intensity;
 
-    float AttenuationRadius; //  4B
-    float FalloffExponent; //  4B
-    uint LightType; //  4B
-    float _pad0; //  4B
+    float AttenuationRadius;
+    float FalloffExponent;
+    uint LightType;
+    float _pad0;
 
-    float3 Direction; // 12B  (Spot 전용)
-    float InnerConeCos; //  4B  (Spot 전용)
+    float3 Direction;
+    float InnerConeCos;
 
-    float OuterConeCos; //  4B  (Spot 전용)
-    float3 _pad1; // 12B → 합계 80B
+    float OuterConeCos;
+    int ShadowIndex;
+    float2 _pad1;
 };
+
 struct FClusterCullingState
 {
     float NearZ;
@@ -99,10 +115,13 @@ cbuffer LightingBuffer : register(b4)
     uint Pad;
 };
 
-// ── Structured Buffers (t8~t10) ──
 StructuredBuffer<FLightInfo> AllLights : register(t8);
 StructuredBuffer<uint> TileLightIndices : register(t9);
 StructuredBuffer<uint2> TileLightGrid : register(t10);
 StructuredBuffer<uint> g_ClusterLightIndices : register(t11);
 StructuredBuffer<uint2> g_ClusterLightGrid : register(t12);
+StructuredBuffer<FShadowInfo> gShadowInfos : register(t21);
+Texture2DArray gShadowAtlasArray : register(t22);
+TextureCubeArray gShadowCubeArray : register(t23);
+
 #endif // FORWARD_LIGHT_DATA_HLSLI

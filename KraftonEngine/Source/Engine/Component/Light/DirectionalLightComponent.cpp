@@ -83,3 +83,23 @@ void UDirectionalLightComponent::DestroyFromScene()
 
 	World->GetScene().GetEnvironment().RemoveGlobalDirectionalLight(this);
 }
+
+FShadowMapKey UDirectionalLightComponent::GetShadowMapKey()
+{
+	FShadowMapKey Result;
+	Result.Atlas = FTextureAtlasPool::Get().GetAtlasUVArray(ShadowHandleSet);
+	return Result;
+}
+
+FShadowHandleSet* UDirectionalLightComponent::GetShadowHandleSet()
+{
+	if (!ShadowHandleSet || !ShadowHandleSet->bIsValid)
+	{
+		if (ShadowHandleSet)
+		{
+			ShadowHandleSet->Release();
+		}
+		ShadowHandleSet = FTextureAtlasPool::Get().GetTextureHandle({ 2048, 1024, 512, 256 });
+	}
+	return ShadowHandleSet;
+}

@@ -29,6 +29,7 @@ namespace Key
 	constexpr const char* bDebugDraw = "bDebugDraw";
 	constexpr const char* bOctree = "bOctree";
 	constexpr const char* bFog = "bFog";
+	constexpr const char* bShadows = "bShadows";
 	constexpr const char* GridSpacing = "GridSpacing";
 	constexpr const char* GridHalfLineCount = "GridHalfLineCount";
 	constexpr const char* CameraMoveSensitivity = "CameraMoveSensitivity";
@@ -36,6 +37,9 @@ namespace Key
 	constexpr const char* LightCullingMode = "LightCullingMode";
 	constexpr const char* HeatMapMax = "HeatMapMax";
 	constexpr const char* Enable25DCulling = "Enable25DCulling";
+	constexpr const char* bOverrideCameraWithSelectedLight = "bOverrideCameraWithSelectedLight";
+	constexpr const char* ShadowMapResolution = "ShadowMapResolution";
+	constexpr const char* ShadowFilterMode = "ShadowFilterMode";
 
 	// Paths
 	constexpr const char* EditorStartLevel = "EditorStartLevel";
@@ -112,6 +116,7 @@ void FEditorSettings::SaveToFile(const FString& Path) const
 		SlotObj[Key::bDebugDraw] = Opts.ShowFlags.bDebugDraw;
 		SlotObj[Key::bOctree] = Opts.ShowFlags.bOctree;
 		SlotObj[Key::bFog] = Opts.ShowFlags.bFog;
+		SlotObj[Key::bShadows] = Opts.ShowFlags.bShadows;
 		SlotObj[Key::GridSpacing] = Opts.GridSpacing;
 		SlotObj[Key::GridHalfLineCount] = Opts.GridHalfLineCount;
 		SlotObj[Key::CameraMoveSensitivity] = Opts.CameraMoveSensitivity;
@@ -119,6 +124,9 @@ void FEditorSettings::SaveToFile(const FString& Path) const
 		SlotObj[Key::LightCullingMode] = static_cast<int32>(Opts.LightCullingMode);
 		SlotObj[Key::HeatMapMax] = Opts.HeatMapMax;
 		SlotObj[Key::Enable25DCulling] = Opts.Enable25DCulling;
+		SlotObj[Key::bOverrideCameraWithSelectedLight] = Opts.bOverrideCameraWithSelectedLight;
+		SlotObj[Key::ShadowMapResolution] = Opts.ShadowMapResolution;
+		SlotObj[Key::ShadowFilterMode] = static_cast<int32>(Opts.ShadowFilterMode);
 		SlotsArr.append(SlotObj);
 	}
 	LayoutObj[Key::Slots] = SlotsArr;
@@ -257,6 +265,8 @@ void FEditorSettings::LoadFromFile(const FString& Path)
 					Opts.ShowFlags.bOctree = S[Key::bOctree].ToBool();
 				if (S.hasKey(Key::bFog))
 					Opts.ShowFlags.bFog = S[Key::bFog].ToBool();
+				if (S.hasKey(Key::bShadows))
+					Opts.ShowFlags.bShadows = S[Key::bShadows].ToBool();
 				if (S.hasKey(Key::GridSpacing))
 					Opts.GridSpacing = static_cast<float>(S[Key::GridSpacing].ToFloat());
 				if (S.hasKey(Key::GridHalfLineCount))
@@ -271,6 +281,12 @@ void FEditorSettings::LoadFromFile(const FString& Path)
 					Opts.HeatMapMax = static_cast<float>(S[Key::HeatMapMax].ToFloat());
 				if (S.hasKey(Key::Enable25DCulling))
 					Opts.Enable25DCulling = S[Key::Enable25DCulling].ToBool();
+				if (S.hasKey(Key::bOverrideCameraWithSelectedLight))
+					Opts.bOverrideCameraWithSelectedLight = S[Key::bOverrideCameraWithSelectedLight].ToBool();
+				if (S.hasKey(Key::ShadowMapResolution))
+					Opts.ShadowMapResolution = S[Key::ShadowMapResolution].ToInt();
+				if (S.hasKey(Key::ShadowFilterMode))
+					Opts.ShadowFilterMode = static_cast<EShadowFilterMode>(S[Key::ShadowFilterMode].ToInt());
 			}
 		}
 

@@ -36,18 +36,21 @@ public:
 	void RemoveGlobalDirectionalLight(const UDirectionalLightComponent* Owner);
 	bool HasGlobalDirectionalLight() const { return !DirectionalLights.empty(); }
 	const FGlobalDirectionalLightParams& GetGlobalDirectionalLightParams() const { return DirectionalLights[0].Params; }
+	const UDirectionalLightComponent* GetGlobalDirectionalLightOwner() const { return DirectionalLights.empty() ? nullptr : DirectionalLights[0].Owner; }
 
 	// --- Point Lights ---
 	void AddPointLight(const UPointLightComponent* Owner, const FPointLightParams& Params);
 	void RemovePointLight(const UPointLightComponent* Owner);
 	uint32 GetNumPointLights() const { return static_cast<uint32>(PointLights.size()); }
 	const FPointLightParams& GetPointLight(uint32 Index) const { return PointLights[Index].Params; }
+	const UPointLightComponent* GetPointLightOwner(uint32 Index) const { return PointLights[Index].Owner; }
 
 	// --- Spot Lights ---
 	void AddSpotLight(const USpotLightComponent* Owner, const FSpotLightParams& Params);
 	void RemoveSpotLight(const USpotLightComponent* Owner);
 	uint32 GetNumSpotLights() const { return static_cast<uint32>(SpotLights.size()); }
 	const FSpotLightParams& GetSpotLight(uint32 Index) const { return SpotLights[Index].Params; }
+	const USpotLightComponent* GetSpotLightOwner(uint32 Index) const { return SpotLights[Index].Owner; }
 
 private:
 	// --- Entry 구조체 (Owner는 lookup key 전용, 역참조 없음) ---

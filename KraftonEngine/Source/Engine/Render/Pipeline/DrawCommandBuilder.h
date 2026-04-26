@@ -36,6 +36,7 @@ public:
 	// 결과 접근
 	FDrawCommandList& GetCommandList() { return DrawCommandList; }
 	bool HasSelectionMaskCommands() const { return bHasSelectionMaskCommands; }
+	FConstantBuffer* GetPerObjectCBForShadowPass(const FPrimitiveSceneProxy& Proxy) { return GetPerObjectCBForProxy(Proxy); }
 
 private:
 	void PrepareDynamicGeometry(const FFrameContext& Frame, const FScene* Scene);

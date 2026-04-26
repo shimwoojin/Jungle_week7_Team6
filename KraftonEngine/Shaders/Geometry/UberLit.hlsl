@@ -14,6 +14,10 @@
 #include "Common/VertexLayouts.hlsli"
 #include "Common/SystemSamplers.hlsli"
 
+#if !defined(SHADOW_MODE_HARD) && !defined(SHADOW_ENABLE_PCF) && !defined(SHADOW_ENABLE_VSM) && !defined(SHADOW_ENABLE_EVSM) && !defined(SHADOW_ENABLE_CSM)
+#define SHADOW_MODE_HARD 1
+#endif
+
 #if !defined(LIGHTING_MODEL_UNLIT)
 #include "Common/ForwardLighting.hlsli"
 #endif

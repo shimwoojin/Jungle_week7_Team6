@@ -80,6 +80,26 @@ void USpotLightComponent::DestroyFromScene()
 	World->GetScene().GetEnvironment().RemoveSpotLight(this);
 }
 
+FShadowHandleSet* USpotLightComponent::GetShadowHandleSet()
+{
+	if (!ShadowHandleSet || !ShadowHandleSet->bIsValid)
+	{
+		if (ShadowHandleSet)
+		{
+			ShadowHandleSet->Release();
+		}
+		ShadowHandleSet = FTextureAtlasPool::Get().GetTextureHandle(1024);
+	}
+	return ShadowHandleSet;
+}
+
+FShadowMapKey USpotLightComponent::GetShadowMapKey()
+{
+	FShadowMapKey Result;
+	Result.Atlas = FTextureAtlasPool::Get().GetAtlasUVArray(ShadowHandleSet);
+	return Result;
+}
+
 void USpotLightComponent::Serialize(FArchive& Ar)
 {
 	UPointLightComponent::Serialize(Ar);

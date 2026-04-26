@@ -33,6 +33,8 @@ void FShaderManager::Initialize(ID3D11Device* InDevice)
 	GetOrCreate(EShaderPath::Gizmo);
 	GetOrCreate(EShaderPath::Editor);
 	GetOrCreate(EShaderPath::Decal);
+	GetOrCreate(EShaderPath::ShadowDepth);
+	GetOrCreate(EShaderPath::ShadowClear);
 	GetOrCreate(EShaderPath::Outline);
 	GetOrCreate(EShaderPath::SceneDepth);
 	GetOrCreate(EShaderPath::SceneNormal);

@@ -16,4 +16,6 @@ private:
 	ID3D11SamplerState* LinearClampSampler = nullptr;	// s0
 	ID3D11SamplerState* LinearWrapSampler = nullptr;	// s1
 	ID3D11SamplerState* PointClampSampler = nullptr;	// s2
+	ID3D11SamplerState* ShadowCmpSampler = nullptr;		// s3
+	ID3D11SamplerState* ShadowPointSampler = nullptr;	// s4
 };

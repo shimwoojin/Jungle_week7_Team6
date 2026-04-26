@@ -25,7 +25,7 @@ struct FPointLightParams : public LightBaseParams
 
 	virtual FLightInfo ToLightInfo() const
 	{
-		FLightInfo Info;
+		FLightInfo Info = {};
 		Info.Position = Position;
 		Info.AttenuationRadius = AttenuationRadius;
 
@@ -38,6 +38,7 @@ struct FPointLightParams : public LightBaseParams
 		Info.InnerConeCos = 0.f;
 		Info.OuterConeCos = 0.f;
 		Info.LightType = LightType;
+		Info.ShadowIndex = -1;
 		return Info;
 	}
 };
