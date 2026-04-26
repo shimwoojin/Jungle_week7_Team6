@@ -115,7 +115,7 @@ void FTextureAtlasPool::OnSetTextureLayerSize()
 
 	for (int i = CurrentManagersCount; i < TargetCount; i++)
 	{
-		std::unique_ptr<FUVManagerBase> NewManager = std::make_unique<TempManager>();
+		std::unique_ptr<FUVManagerBase> NewManager = std::make_unique<FGridUVManager>();
 		NewManager.get()->Initialize(TextureSize);
 
 		UVManagers.push_back(std::move(NewManager));
