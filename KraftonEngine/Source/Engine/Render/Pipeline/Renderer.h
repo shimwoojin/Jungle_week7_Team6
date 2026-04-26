@@ -14,7 +14,6 @@
 #include "Render/Resource/RenderResources.h"
 #include "Render/Culling/TileBasedLightCulling.h"
 #include "Render/Culling/ClusteredLightCuller.h"
-#include "Render/Resource/Texture2DArrayPool.h"
 
 class FScene;
 

@@ -1,6 +1,5 @@
 ﻿#pragma once
 #include "Component/Light/LightComponentBase.h"
-#include "Render/Resource/Texture2DArrayPool.h"
 #include "Render/Resource/TexturePool/TextureAtalsPool.h"
 
 using FShadowHandle = FTexturePoolBase::TexturePoolHandle;

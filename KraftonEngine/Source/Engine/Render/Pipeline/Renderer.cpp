@@ -30,7 +30,6 @@ void FRenderer::Create(HWND hWindow)
 
 	// GPU Profiler 초기화
 	FGPUProfiler::Get().Initialize(Device.GetDevice(), Device.GetDeviceContext());
-	FTexture2DArrayPoolManager::Get().Initialize(Device.GetDevice(), Device.GetDeviceContext());
 }
 
 void FRenderer::Release()
