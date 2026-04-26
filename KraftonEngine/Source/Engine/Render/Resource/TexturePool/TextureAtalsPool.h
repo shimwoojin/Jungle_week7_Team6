@@ -10,7 +10,7 @@ class FTextureAtlasPool final : public FTexturePoolBase
 	using TComPtr = Microsoft::WRL::ComPtr<T>;
 
 public:
-	bool GetTextureHandle(float TextureSize, TexturePoolHandle& OutHandle) override;;
+	TexturePoolHandleSet GetTextureHandle(TexturePoolHandleRequest HandleRequest) override;;
 	void ReleaseHandle(TexturePoolHandle& InHandle) override;
 	AtlasUV GetAtlasUV(const TexturePoolHandle& InHandle) { return UVManagers[InHandle.ArrayIndex].get()->GetAtlasUV(InHandle.InternalIndex); }
 

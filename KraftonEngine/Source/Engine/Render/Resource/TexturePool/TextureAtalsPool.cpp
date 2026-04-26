@@ -3,20 +3,30 @@
 template<typename T>
 using TComPtr = Microsoft::WRL::ComPtr<T>;
 using TexturePoolHandle = FTexturePoolBase::TexturePoolHandle;
+using TexturePoolHandleSet = FTexturePoolBase::TexturePoolHandleSet;
 
-bool FTextureAtlasPool::GetTextureHandle(float TextureSize, TexturePoolHandle& OutHandle)
+
+TexturePoolHandleSet FTextureAtlasPool::GetTextureHandle(TexturePoolHandleRequest HandleRequest)
 {
 	uint32 ManagerCount = UVManagers.size();
-	for (int i = 0; i < ManagerCount; i++)
+
+	TexturePoolHandleSet HandleSet;
+
+	for (uint32 Size : HandleRequest.Sizes)
 	{
-		if (UVManagers[i].get()->GetHandle(TextureSize, OutHandle.InternalIndex))
+		TexturePoolHandle Handle;
+		for (int i = 0; i < ManagerCount; i++)
 		{
-			OutHandle.ArrayIndex = i;
-			return true;
+			if (UVManagers[i].get()->GetHandle(Size, Handle.InternalIndex))
+			{
+				Handle.ArrayIndex = i;
+				break;
+			}
 		}
 	}
 
-	return false;
+
+	return HandleSet;
 }
 
 void FTextureAtlasPool::ReleaseHandle(TexturePoolHandle& InHandle)

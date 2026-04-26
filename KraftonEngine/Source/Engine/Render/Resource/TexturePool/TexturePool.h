@@ -15,6 +15,7 @@ class FTexturePoolBase : public TSingleton<FTexturePoolBase>
 public:
 	struct TexturePoolHandle
 	{
+		TexturePoolHandle() = default;
 		TexturePoolHandle(uint32 InInternalIndex, uint32 InArrayIndex)
 			: InternalIndex(InInternalIndex), ArrayIndex(InArrayIndex) {
 		}
@@ -35,6 +36,27 @@ public:
 		FTexturePoolBase* Pool = nullptr;
 	};
 
+	struct TexturePoolHandleSet
+	{
+		void Release() { for (auto Handle : Handles) Handle.Release(); }
+
+		bool bIsValid = false;
+		TArray<TexturePoolHandle> Handles;
+	};
+
+	struct TexturePoolHandleRequest
+	{
+		TexturePoolHandleRequest() = default;
+
+		template<typename... Args>
+		TexturePoolHandleRequest(Args... args)
+		{
+			(Sizes.push_back(static_cast<uint32>(args)), ...);
+		}
+
+		TArray<uint32> Sizes;
+	};
+
 private:
 	struct SRVResource
 	{
@@ -46,7 +68,7 @@ private:
 public:
 	void Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, uint32 InTextureSize);
 
-	virtual bool GetTextureHandle(float TextureSize, TexturePoolHandle& OutHandle) { return false; }
+	virtual TexturePoolHandleSet GetTextureHandle(TexturePoolHandleRequest HandleRequest) { return TexturePoolHandleSet(); }
 	virtual void ReleaseHandle(TexturePoolHandle& InHandle) {};
 	virtual ID3D11ShaderResourceView* GetDebugSRV(const TexturePoolHandle& InHandle) { return nullptr; }
 

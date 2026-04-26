@@ -11,6 +11,8 @@ public:
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
 
+	virtual FShadowHandleSet& GetShadowHandleSet() override;
+
 protected:
 	float InnerConeAngle = 20.0f;	// Inner Cone Angle in degrees
 	float OuterConeAngle = 40.0f;	// Outer Cone Angle in degrees

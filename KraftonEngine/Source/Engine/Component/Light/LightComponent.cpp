@@ -13,14 +13,6 @@ void ULightComponent::Serialize(FArchive& Ar)
 	Ar << ShadowSharpen;
 }
 
-FTexture2DArrayPool::Entry* ULightComponent::GetShadowEntry()
-{
-	if (!ShadowMapEntry)
-		ShadowMapEntry = FTexture2DArrayPoolManager::Get().GetTexturePool(GetShadowMapTextureType(), 1024)->GetEntry();
-
-	return ShadowMapEntry;
-}
-
 void ULightComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps)
 {
 	ULightComponentBase::GetEditableProperties(OutProps);

@@ -9,4 +9,7 @@ public:
 	void ContributeSelectedVisuals(FScene& Scene) const;
 	virtual void PushToScene() override;
 	virtual void DestroyFromScene() override;
+
+
+	virtual FShadowHandleSet& GetShadowHandleSet() override;
 };

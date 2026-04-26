@@ -1,13 +1,17 @@
 ﻿#pragma once
 #include "Component/Light/LightComponentBase.h"
 #include "Render/Resource/Texture2DArrayPool.h"
+#include "Render/Resource/TexturePool/TextureAtalsPool.h"
+
+using FShadowHandle = FTexturePoolBase::TexturePoolHandle;
+using FShadowHandleSet = FTexturePoolBase::TexturePoolHandleSet;
 
 class ULightComponent : public ULightComponentBase
 {
 public:
 	DECLARE_CLASS(ULightComponent, ULightComponentBase)
 
-	~ULightComponent() { if(ShadowMapEntry) ShadowMapEntry->LetsGoHome(); }
+	~ULightComponent() { ShadowHandleSet.Release(); }
 
 	float GetShadowResolutionScale() const { return ShadowResolutionScale; }
 	float GetShadowBias() const { return ShadowBias; }
@@ -17,8 +21,7 @@ public:
 	virtual void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
 	virtual void Serialize(FArchive& Ar) override;
 
-	FTexture2DArrayPool::Entry* GetShadowEntry();
-	virtual ArrayType GetShadowMapTextureType() { return ArrayType::Default; }
+	virtual FShadowHandleSet& GetShadowHandleSet() { return ShadowHandleSet; }
 
 protected:
 	float ShadowResolutionScale = 1.0f;
@@ -26,5 +29,5 @@ protected:
 	float ShadowSlopeBias = 0.01f;
 	float ShadowSharpen = 0.0f;
 
-	FTexture2DArrayPool::Entry* ShadowMapEntry = nullptr;
+	FShadowHandleSet ShadowHandleSet;
 };
