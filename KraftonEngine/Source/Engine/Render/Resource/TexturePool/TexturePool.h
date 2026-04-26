@@ -60,6 +60,8 @@ private:
 
 public:
 	void Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, uint32 InTextureSize);
+	uint32 GetTextureSize() const { return TextureSize; }
+	uint32 GetAllocatedLayerCount() const { return TextureLayerSize; }
 
 	virtual TexturePoolHandleSet* GetTextureHandle(TexturePoolHandleRequest HandleRequest) { return nullptr; }
 	virtual void ReleaseHandle(TexturePoolHandle& InHandle) {};

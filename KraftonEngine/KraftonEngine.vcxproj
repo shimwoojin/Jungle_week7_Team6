@@ -383,7 +383,6 @@
     <ClCompile Include="Source\ObjViewer\ObjViewerPanel.cpp" />
     <ClCompile Include="Source\ObjViewer\ObjViewerRenderPipeline.cpp" />
     <ClCompile Include="Source\ObjViewer\ObjViewerViewportClient.cpp" />
-    <ClCompile Include="Source\Engine\Render\Resource\Texture2DArrayPool.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\TextureAtalsPool.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\TexturePool.cpp" />
     <ClCompile Include="ThirdParty\ImGui\imgui.cpp" />
@@ -578,7 +577,6 @@
     <ClInclude Include="Source\ObjViewer\ObjViewerPanel.h" />
     <ClInclude Include="Source\ObjViewer\ObjViewerRenderPipeline.h" />
     <ClInclude Include="Source\ObjViewer\ObjViewerViewportClient.h" />
-    <ClInclude Include="Source\Engine\Render\Resource\Texture2DArrayPool.h" />
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\TextureAtalsPool.h" />
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\TexturePool.h" />
     <ClInclude Include="ThirdParty\ImGui\imconfig.h" />

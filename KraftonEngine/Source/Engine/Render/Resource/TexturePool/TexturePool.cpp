@@ -5,8 +5,8 @@ void FTexturePoolBase::Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* I
 	Device = InDevice;
 	DeviceContext = InDeviceContext;
 
-	SetTextureLayerSize(1);
 	SetTextureSize(InTextureSize);
+	SetTextureLayerSize(1);
 
 	Texture = CreateTexture(Device);
 	RebuildSRV(Device, Texture.Get());
@@ -22,9 +22,11 @@ void FTexturePoolBase::ReleaseHandleSet(TexturePoolHandleSet* InHandleSet)
 	}
 
 	uint32 TargetIndex = InHandleSet->InternalIndex;
-	AllocatedHandleList[TargetIndex].release();
-	AllocatedHandleList[TargetIndex] = std::move(AllocatedHandleList.back());
-	AllocatedHandleList[TargetIndex].get()->InternalIndex = TargetIndex;
+	if (TargetIndex + 1 < AllocatedHandleList.size())
+	{
+		AllocatedHandleList[TargetIndex] = std::move(AllocatedHandleList.back());
+		AllocatedHandleList[TargetIndex].get()->InternalIndex = TargetIndex;
+	}
 	AllocatedHandleList.pop_back();
 }
 
@@ -58,7 +60,9 @@ void FTexturePoolBase::RebuildDSV(ID3D11Device* Device, ID3D11Texture2D* InTextu
 void FTexturePoolBase::ResizeLayer(uint32 InNewLayerSize)
 {
 	const uint32 OldTotalSlices = TextureLayerSize;
+	TComPtr<ID3D11Texture2D> OldTexture = Texture;
 
+	SetTextureLayerSize(InNewLayerSize);
 	TComPtr<ID3D11Texture2D> NewTexture = CreateTexture(Device);
 
 	for (uint32 slice = 0; slice < OldTotalSlices; ++slice)
@@ -67,13 +71,11 @@ void FTexturePoolBase::ResizeLayer(uint32 InNewLayerSize)
 			NewTexture.Get(),
 			slice,
 			0, 0, 0,
-			Texture.Get(),
+			OldTexture.Get(),
 			slice,
 			nullptr
 		);
 	}
-
-	SetTextureLayerSize(InNewLayerSize);
 
 	Texture = std::move(NewTexture);
 	RebuildSRV(Device, Texture.Get());

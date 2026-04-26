@@ -93,9 +93,12 @@ FShadowMapKey UDirectionalLightComponent::GetShadowMapKey()
 
 FShadowHandleSet* UDirectionalLightComponent::GetShadowHandleSet()
 {
-	if (!ShadowHandleSet->bIsValid)
+	if (!ShadowHandleSet || !ShadowHandleSet->bIsValid)
 	{
-		ShadowHandleSet->Release();
+		if (ShadowHandleSet)
+		{
+			ShadowHandleSet->Release();
+		}
 		ShadowHandleSet = FTextureAtlasPool::Get().GetTextureHandle({ 2048, 1024, 512, 256 });
 	}
 	return ShadowHandleSet;

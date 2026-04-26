@@ -57,6 +57,9 @@ namespace ESystemTexSlot
 	constexpr uint32 GBufferNormal = 18; // t18: GBuffer World Normal (R16G16B16A16_FLOAT)
 	constexpr uint32 Stencil     = 19; // t19: CopyResource된 Stencil (X24_G8_UINT)
 	constexpr uint32 CullingHeatmap = 20; // t20: Tile Culling Heatmap (R8G8B8A8_UNORM)
+	constexpr uint32 ShadowInfos = 21; // t21: StructuredBuffer<FShadowInfo>
+	constexpr uint32 ShadowAtlasArray = 22; // t22: Texture2DArray shadow atlas
+	constexpr uint32 ShadowCubeArray = 23; // t23: TextureCubeArray point shadow reserve
 }
 
 // HLSL 시스템 샘플러 슬롯 — Renderer가 프레임 시작 시 영구 바인딩
@@ -65,7 +68,8 @@ namespace ESamplerSlot
 	constexpr uint32 LinearClamp = 0; // s0: PostProcess, UI, 기본
 	constexpr uint32 LinearWrap = 1; // s1: 메시 텍스처, 데칼
 	constexpr uint32 PointClamp = 2; // s2: 폰트, 깊이/스텐실 정밀 읽기
-	// s3-s4: 셰이더별 커스텀 용도
+	constexpr uint32 ShadowCmp = 3; // s3: shadow comparison sampler
+	constexpr uint32 ShadowPoint = 4; // s4: point shadow sampler
 }
 
 //PerObject

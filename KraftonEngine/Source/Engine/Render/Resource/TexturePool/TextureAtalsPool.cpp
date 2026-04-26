@@ -5,7 +5,7 @@ using TComPtr = Microsoft::WRL::ComPtr<T>;
 using TexturePoolHandle = FTexturePoolBase::TexturePoolHandle;
 using TexturePoolHandleSet = FTexturePoolBase::TexturePoolHandleSet;
 
-
+//들어갈 곳이 없으면 자동으로 Resize하는 로직이 추가 되었는데 일단은 그냥 두기
 TexturePoolHandleSet* FTextureAtlasPool::GetTextureHandle(TexturePoolHandleRequest HandleRequest)
 {
 	uint32 ManagerCount = UVManagers.size();
@@ -15,17 +15,29 @@ TexturePoolHandleSet* FTextureAtlasPool::GetTextureHandle(TexturePoolHandleReque
 	for (uint32 Size : HandleRequest.Sizes)
 	{
 		TexturePoolHandle Handle;
-		for (int i = 0; i < ManagerCount; i++)
+		bool bAllocated = false;
+		while (!bAllocated)
 		{
-			if (UVManagers[i].get()->GetHandle(Size, Handle.InternalIndex))
+			for (uint32 i = 0; i < ManagerCount; ++i)
 			{
-				Handle.ArrayIndex = i;
-				break;
+				if (UVManagers[i].get()->GetHandle(Size, Handle.InternalIndex))
+				{
+					Handle.ArrayIndex = i;
+					bAllocated = true;
+					break;
+				}
+			}
+
+			if (!bAllocated)
+			{
+				ResizeLayer();
+				ManagerCount = UVManagers.size();
 			}
 		}
 
 		HandleSet.get()->Handles.push_back(Handle);
 	}
+	HandleSet->bIsValid = true;
 	AllocatedHandleList.push_back(std::move(HandleSet));
 	return AllocatedHandleList.back().get();
 }
@@ -113,10 +125,10 @@ void FTextureAtlasPool::OnSetTextureLayerSize()
 	uint32 CurrentManagersCount = UVManagers.size();
 	uint32 TargetCount = GetTextureLayerSize();
 
-	for (int i = CurrentManagersCount; i < TargetCount; i++)
+	for (uint32 i = CurrentManagersCount; i < TargetCount; ++i)
 	{
-		std::unique_ptr<FUVManagerBase> NewManager = std::make_unique<FGridUVManager>();
-		NewManager.get()->Initialize(TextureSize);
+		auto NewManager = std::make_unique<FGridUVManager>();
+		NewManager->Initialize(TextureSize, 1024);
 
 		UVManagers.push_back(std::move(NewManager));
 	}

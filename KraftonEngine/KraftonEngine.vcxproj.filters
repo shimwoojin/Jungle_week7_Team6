@@ -687,7 +687,6 @@
       <Filter>ThirdParty\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Source\Engine\Render\Resource\Texture2DArrayPool.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\TextureAtalsPool.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\TexturePool.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\UVManager\FUVManager.cpp" />
@@ -1266,7 +1265,6 @@
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\TextureAtalsPool.h" />
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\TexturePool.h" />
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\UVManager\FUVManager.h" />
-    <ClInclude Include="Source\Engine\Render\Resource\Texture2DArrayPool.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="KraftonEngine.rc" />

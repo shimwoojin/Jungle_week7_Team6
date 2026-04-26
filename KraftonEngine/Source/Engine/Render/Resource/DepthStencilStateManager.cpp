@@ -29,6 +29,22 @@ void FDepthStencilStateManager::Create(ID3D11Device* InDevice)
 	Desc.StencilEnable = FALSE;
 	InDevice->CreateDepthStencilState(&Desc, &DepthReadOnly);
 
+	// Shadow depth write (Reversed-Z)
+	Desc = {};
+	Desc.DepthEnable = TRUE;
+	Desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	Desc.DepthFunc = D3D11_COMPARISON_GREATER_EQUAL;
+	Desc.StencilEnable = FALSE;
+	InDevice->CreateDepthStencilState(&Desc, &ShadowDepth);
+
+	// Shadow region clear draw
+	Desc = {};
+	Desc.DepthEnable = TRUE;
+	Desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	Desc.DepthFunc = D3D11_COMPARISON_ALWAYS;
+	Desc.StencilEnable = FALSE;
+	InDevice->CreateDepthStencilState(&Desc, &ShadowClear);
+
 	// Stencil Write
 	Desc = {};
 	Desc.DepthEnable = TRUE;
@@ -84,6 +100,8 @@ void FDepthStencilStateManager::Release()
 	SAFE_RELEASE(Default);
 	SAFE_RELEASE(DepthGreaterEqual);
 	SAFE_RELEASE(DepthReadOnly);
+	SAFE_RELEASE(ShadowDepth);
+	SAFE_RELEASE(ShadowClear);
 	SAFE_RELEASE(StencilWrite);
 	SAFE_RELEASE(StencilMaskEqual);
 	SAFE_RELEASE(NoDepth);
@@ -100,6 +118,8 @@ void FDepthStencilStateManager::Set(ID3D11DeviceContext* InContext, EDepthStenci
 	case EDepthStencilState::Default:              InContext->OMSetDepthStencilState(Default, 0);          break;
 	case EDepthStencilState::DepthGreaterEqual:   InContext->OMSetDepthStencilState(DepthGreaterEqual, 0); break;
 	case EDepthStencilState::DepthReadOnly:        InContext->OMSetDepthStencilState(DepthReadOnly, 0);    break;
+	case EDepthStencilState::ShadowDepth:          InContext->OMSetDepthStencilState(ShadowDepth, 0);      break;
+	case EDepthStencilState::ShadowClear:          InContext->OMSetDepthStencilState(ShadowClear, 0);      break;
 	case EDepthStencilState::StencilWrite:         InContext->OMSetDepthStencilState(StencilWrite, 1);     break;
 	case EDepthStencilState::StencilWriteOnlyEqual:InContext->OMSetDepthStencilState(StencilMaskEqual, 1); break;
 	case EDepthStencilState::NoDepth:              InContext->OMSetDepthStencilState(NoDepth, 0);          break;

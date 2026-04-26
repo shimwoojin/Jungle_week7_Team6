@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Math/Matrix.h"
 #include "Math/Vector.h"
 #include "Core/EngineTypes.h"
 
@@ -20,6 +21,7 @@ namespace ELightType
 {
 	constexpr uint32 Point = 0;
 	constexpr uint32 Spot = 1;
+	constexpr uint32 Directional = 2;
 }
 
 // =============================================================================
@@ -39,8 +41,45 @@ struct FDirectionalLightGPU
 {
 	FVector4 Color;       // 16B
 	FVector  Direction;   // 12B
-	float    Intensity;   //  4B → 합계 32B (16B 정렬)
+	float    Intensity;   //  4B
+	int32    ShadowIndex; //  4B
+	float    _pad[3];     // 12B → 합계 48B (16B 정렬)
 };
+
+struct FShadowMatrixGPU
+{
+	float M[4][4];
+
+	FShadowMatrixGPU()
+	{
+		memset(M, 0, sizeof(M));
+	}
+
+	FShadowMatrixGPU(const FMatrix& InMatrix)
+	{
+		memcpy(M, InMatrix.M, sizeof(M));
+	}
+
+	FShadowMatrixGPU& operator=(const FMatrix& InMatrix)
+	{
+		memcpy(M, InMatrix.M, sizeof(M));
+		return *this;
+	}
+};
+static_assert(sizeof(FShadowMatrixGPU) == 64, "FShadowMatrixGPU must match HLSL float4x4");
+
+struct FShadowInfo
+{
+	uint32   Type;
+	uint32   ArrayIndex;
+	uint32   LightIndex;
+	uint32   Padding0;
+
+	FShadowMatrixGPU LightVP;
+	FVector4 SampleData;
+};
+static_assert(sizeof(FShadowInfo) % 16 == 0, "FShadowInfo must be 16-byte aligned for StructuredBuffer");
+static_assert(sizeof(FShadowInfo) == 96, "FShadowInfo size mismatch with HLSL");
 
 // Point/Spot 통합 POD — StructuredBuffer<FLightInfo> (t8)
 // GPU는 LightType으로 분기, CPU는 다형성(ToGPULightInfo)으로 채움
@@ -62,7 +101,8 @@ struct FLightInfo
 	float    InnerConeCos;            //  4B  | offset 60  (cos(innerAngle), C++에서 미리 계산)
 
 	float    OuterConeCos;            //  4B  | offset 64  (cos(outerAngle))
-	float    _pad1[3];               // 12B  | offset 68  → 합계 80B (16B 정렬)
+	int32    ShadowIndex;            //  4B  | offset 68  (-1 = no shadow)
+	float    _pad1[2];               //  8B  | offset 72  → 합계 80B (16B 정렬)
 };
 static_assert(sizeof(FLightInfo) % 16 == 0, "FLightInfo must be 16-byte aligned for StructuredBuffer");
 static_assert(sizeof(FLightInfo) == 80, "FLightInfo size mismatch with HLSL");
@@ -87,21 +127,21 @@ struct FClusterCullingState
 struct FLightingCBData
 {
 	FAmbientLightGPU     Ambient;              // 32B  | offset  0
-	FDirectionalLightGPU Directional;          // 32B  | offset 32
+	FDirectionalLightGPU Directional;          // 48B  | offset 32
 
-	uint32  NumActivePointLights;              //  4B  | offset 64
-	uint32  NumActiveSpotLights;               //  4B  | offset 68
-	uint32  NumTilesX;                         //  4B  | offset 72  (Tile Culling용)
-	uint32  NumTilesY;                         //  4B  | offset 76  → 합계 80B (16B 정렬)
-	FClusterCullingState ClusterCullingState;  // 32B  | offset 80
+	uint32  NumActivePointLights;              //  4B  | offset 80
+	uint32  NumActiveSpotLights;               //  4B  | offset 84
+	uint32  NumTilesX;                         //  4B  | offset 88  (Tile Culling용)
+	uint32  NumTilesY;                         //  4B  | offset 92
+	FClusterCullingState ClusterCullingState;  // 32B  | offset 96
 
-	uint32  LightCullingMode;                  //  4B  | offset 112
-	uint32  VisualizeLightCulling;             //  4B  | offset 116
-	float   HeatMapMax;                        //  4B  | offset 120
-	uint32  _padFlags[1];                      //  4B  | offset 124 → 합계 128B
+	uint32  LightCullingMode;                  //  4B  | offset 128
+	uint32  VisualizeLightCulling;             //  4B  | offset 132
+	float   HeatMapMax;                        //  4B  | offset 136
+	uint32  _padFlags[1];                      //  4B  | offset 140 → 합계 144B
 };
 static_assert(sizeof(FLightingCBData) % 16 == 0, "FLightingCBData must be 16-byte aligned");
-static_assert(sizeof(FLightingCBData) == 128, "FLightingCBData size mismatch with HLSL");
+static_assert(sizeof(FLightingCBData) == 144, "FLightingCBData size mismatch with HLSL");
 
 // =============================================================================
 // Tile-based Light Culling 상수
