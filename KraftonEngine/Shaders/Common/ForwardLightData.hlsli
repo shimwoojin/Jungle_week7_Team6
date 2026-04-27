@@ -18,6 +18,9 @@
 #define LIGHT_TYPE_SPOT 1
 #define LIGHT_TYPE_DIRECTIONAL 2
 
+#define SHADOW_INFO_TYPE_ATLAS2D 0
+#define SHADOW_INFO_TYPE_CUBEMAP 1
+
 #define TILE_SIZE 16
 #define MAX_LIGHTS_PER_TILE 256
 
@@ -55,7 +58,7 @@ struct FShadowInfo
     uint Type;
     uint ArrayIndex;
     uint LightIndex;
-    uint Padding0;
+    float NearZ;
 
     row_major float4x4 LightVP;
     float4 SampleData;

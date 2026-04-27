@@ -1,6 +1,7 @@
 ﻿#include "RenderResources.h"
 #include "Render/Device/D3DDevice.h"
 #include "Render/Resource/TexturePool/TextureAtalsPool.h"
+#include "Render/Resource/TexturePool/TextureCubeShadowPool.h"
 #include "Materials/MaterialManager.h"
 #include "Render/Pipeline/ForwardLightData.h"
 #include "Render/Pipeline/FrameContext.h"
@@ -394,7 +395,8 @@ void FSystemResources::BindShadowResources(FD3DDevice& Device)
 	ID3D11DeviceContext* Ctx = Device.GetDeviceContext();
 	ID3D11ShaderResourceView* ShadowInfoSRV = ShadowInfos.SRV;
 	ID3D11ShaderResourceView* ShadowAtlasSRV = FTextureAtlasPool::Get().GetSRV();
-	ID3D11ShaderResourceView* ShadowCubeSRV = nullptr;
+	ID3D11ShaderResourceView* ShadowCubeSRV = FTextureCubeShadowPool::Get().GetSRV();
+
 	Ctx->PSSetShaderResources(ESystemTexSlot::ShadowInfos, 1, &ShadowInfoSRV);
 	Ctx->PSSetShaderResources(ESystemTexSlot::ShadowAtlasArray, 1, &ShadowAtlasSRV);
 	Ctx->PSSetShaderResources(ESystemTexSlot::ShadowCubeArray, 1, &ShadowCubeSRV);

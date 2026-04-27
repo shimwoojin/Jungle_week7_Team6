@@ -73,7 +73,7 @@ struct FShadowInfo
 	uint32   Type;
 	uint32   ArrayIndex;
 	uint32   LightIndex;
-	uint32   Padding0;
+	float    NearZ;
 
 	FShadowMatrixGPU LightVP;
 	FVector4 SampleData;
@@ -81,6 +81,12 @@ struct FShadowInfo
 };
 static_assert(sizeof(FShadowInfo) % 16 == 0, "FShadowInfo must be 16-byte aligned for StructuredBuffer");
 static_assert(sizeof(FShadowInfo) == 112, "FShadowInfo size mismatch with HLSL");
+
+namespace EShadowInfoType
+{
+	constexpr uint32 Atlas2D = 0;
+	constexpr uint32 CubeMap = 1;
+}
 
 // Point/Spot 통합 POD — StructuredBuffer<FLightInfo> (t8)
 // GPU는 LightType으로 분기, CPU는 다형성(ToGPULightInfo)으로 채움

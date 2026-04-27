@@ -58,6 +58,13 @@ namespace
 				0.0f, 0.0f, -(FarZ * NearZ) / Denom, 0.0f);
 		}
 
+		static FMatrix MakePointShadowProjection(float AttenuationRadius, float& OutNearZ, float& OutFarZ)
+		{
+			OutNearZ = FMath::Clamp(AttenuationRadius * 0.01f, 0.05f, 5.0f);
+			OutFarZ = AttenuationRadius > OutNearZ ? AttenuationRadius : (OutNearZ + 1.0f);
+			return MakeReversedZPerspective(FMath::Pi * 0.5f, 1.0f, OutNearZ, OutFarZ);
+		}
+
 		static FMatrix MakeReversedZOrthographic(float Width, float Height, float NearZ, float FarZ)
 		{
 			const float HalfW = Width * 0.5f;
@@ -269,9 +276,9 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 			continue;
 		}
 
-		const float NearZ = FMath::Clamp(Params.AttenuationRadius * 0.01f, 0.05f, 5.0f);
-		const float FarZ = (Params.AttenuationRadius > NearZ + 1.0f) ? Params.AttenuationRadius : (NearZ + 1.0f);
-		const FMatrix LightProj = FShadowUtil::MakeReversedZPerspective(FMath::Pi * 0.5f, 1.0f, NearZ, FarZ);
+		float NearZ = 0.0f;
+		float FarZ = 0.0f;
+		const FMatrix LightProj = FShadowUtil::MakePointShadowProjection(Params.AttenuationRadius, NearZ, FarZ);
 		const D3D11_VIEWPORT CubeViewport = FShadowUtil::MakeFullViewport(FTextureCubeShadowPool::Get().GetResolution());
 
 		const FVector FaceForwards[FTextureCubeShadowPool::CubeFaceCount] =
@@ -326,9 +333,10 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 		}
 
 		FShadowInfo Info = {};
-		Info.Type = 1;
+		Info.Type = EShadowInfoType::CubeMap;
 		Info.ArrayIndex = CubeHandle.CubeIndex;
 		Info.LightIndex = PointIndex;
+		Info.NearZ = NearZ;
 		Info.LightVP = FMatrix::Identity;
 		Info.SampleData = FVector4(Params.Position.X, Params.Position.Y, Params.Position.Z, FarZ);
 
@@ -377,7 +385,7 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 		Task.DSV = DSVs[0];
 
 		FShadowInfo Info = {};
-		Info.Type = 0;
+		Info.Type = EShadowInfoType::Atlas2D;
 		Info.ArrayIndex = AtlasUVs[0].ArrayIndex;
 		Info.LightIndex = NumPointLights + SpotIndex;
 		Info.LightVP = LightVP;
@@ -426,7 +434,7 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 			Task.DSV = DSVs[0];
 
 			FShadowInfo Info = {};
-			Info.Type = 0;
+			Info.Type = EShadowInfoType::Atlas2D;
 			Info.ArrayIndex = AtlasUVs[0].ArrayIndex;
 			Info.LightIndex = 0xffffffffu;
 			Info.LightVP = LightVP;
@@ -438,8 +446,9 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 			OutShadowPassData.BindingData.ShadowInfos.push_back(Info);
 		}
 	}
-#pragma endregion	
 #pragma endregion
+#pragma endregion
+
 }
 
 //생성된 ShadowTask들에 대해서 렌더링해서 ShadowMap 생성하는 과정. VSM 아직 불가
@@ -469,12 +478,18 @@ void FRenderer::RenderShadowPass(const FFrameContext& Frame, const FScene& Scene
 
 	for (const FShadowRenderTask& Task : ShadowPassData.RenderTasks)
 	{
+		if (!Task.DSV)
+		{
+			continue;
+		}
+
 		//VSM이면 RTV도 설정해 줘야함 RTV는 TexturePool에서 관리 할거임 근데 아직 없음
 		Ctx->OMSetRenderTargets(0, nullptr, Task.DSV);
 		Ctx->RSSetViewports(1, &Task.Viewport);
 
 		Resources.SetDepthStencilState(Device, EDepthStencilState::ShadowClear);
 		ShadowClearShader->Bind(Ctx);
+		Ctx->PSSetShader(nullptr, nullptr, 0);
 		Ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		Ctx->Draw(3, 0);
 

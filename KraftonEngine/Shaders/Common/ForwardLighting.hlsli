@@ -3,6 +3,7 @@
 
 #include "Common/ForwardLightData.hlsli"
 #include "Common/ConstantBuffers.hlsli"
+#include "Common/SystemSamplers.hlsli"
 
 float GetShadowDepthBias(FShadowInfo info)
 {
@@ -57,12 +58,19 @@ float SampleAtlasShadow(FShadowInfo info, float3 worldPos)
 float SampleCubeShadow(FShadowInfo info, float3 worldPos)
 {
     float3 lightPos = info.SampleData.xyz;
-    float range = max(info.SampleData.w, 0.0001f);
+    float nearZ = max(info.NearZ, 0.0001f);
+    float farZ = max(info.SampleData.w, nearZ + 0.0001f);
 
     float3 toPixel = worldPos - lightPos;
-    float dist = length(toPixel);
-    float3 dir = toPixel / max(dist, 0.0001f);
-    float depth = saturate(dist / range) - GetShadowDepthBias(info);
+    float3 absToPixel = abs(toPixel);
+    float faceDepth = max(max(absToPixel.x, absToPixel.y), absToPixel.z);
+    if (faceDepth < nearZ || faceDepth > farZ)
+    {
+        return 1.0f;
+    }
+
+    float3 dir = toPixel / max(faceDepth, 0.0001f);
+    float depth = (nearZ * (farZ / faceDepth - 1.0f) / (farZ - nearZ)) + GetShadowDepthBias(info);
 
     return gShadowCubeArray.SampleCmpLevelZero(
         ShadowCmpSampler,
@@ -75,7 +83,7 @@ float SampleShadowInfo(FShadowInfo info, float3 worldPos)
     float shadow = 1.0f;
 
 #if defined(SHADOW_ENABLE_PCF) && SHADOW_ENABLE_PCF
-    if (info.Type == 0)
+    if (info.Type == SHADOW_INFO_TYPE_ATLAS2D)
     {
         shadow = SampleAtlasShadow(info, worldPos);
     }
@@ -88,7 +96,7 @@ float SampleShadowInfo(FShadowInfo info, float3 worldPos)
 #elif defined(SHADOW_ENABLE_EVSM) && SHADOW_ENABLE_EVSM
     shadow = 1.0f;
 #elif defined(SHADOW_ENABLE_CSM) && SHADOW_ENABLE_CSM
-    if (info.Type == 0)
+    if (info.Type == SHADOW_INFO_TYPE_ATLAS2D)
     {
         shadow = SampleAtlasShadow(info, worldPos);
     }
@@ -97,7 +105,7 @@ float SampleShadowInfo(FShadowInfo info, float3 worldPos)
         shadow = SampleCubeShadow(info, worldPos);
     }
 #else
-    if (info.Type == 0)
+    if (info.Type == SHADOW_INFO_TYPE_ATLAS2D)
     {
         shadow = SampleAtlasShadow(info, worldPos);
     }
