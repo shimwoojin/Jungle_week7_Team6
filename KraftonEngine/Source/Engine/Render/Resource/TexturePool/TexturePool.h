@@ -41,6 +41,11 @@ public:
 	{
 		TexturePoolHandleRequest() = default;
 
+		TexturePoolHandleRequest(std::initializer_list<uint32> InSizes)
+			: Sizes(InSizes)
+		{
+		}
+
 		template<typename... Args>
 		TexturePoolHandleRequest(Args... args)
 		{

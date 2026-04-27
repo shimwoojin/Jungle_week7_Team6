@@ -1,4 +1,4 @@
-#include "TextureAtalsPool.h"
+﻿#include "TextureAtalsPool.h"
 
 template<typename T>
 using TComPtr = Microsoft::WRL::ComPtr<T>;
@@ -94,11 +94,20 @@ TArray<FAtlasUV> FTextureAtlasPool::GetAtlasUVArray(const TexturePoolHandleSet* 
 TArray<ID3D11DepthStencilView*> FTextureAtlasPool::GetDSVs(TexturePoolHandleSet* HandleSet)
 {
 	TArray<ID3D11DepthStencilView*> Result;
+	if (!HandleSet) return Result;
+
 	TArray<TexturePoolHandle> Handles = HandleSet->Handles;
 
 	for (const auto& Handle : Handles)
 	{
-		Result.push_back(DSVs[Handle.ArrayIndex].Get());
+		if (Handle.ArrayIndex < static_cast<uint32>(DSVs.size()))
+		{
+			Result.push_back(DSVs[Handle.ArrayIndex].Get());
+		}
+		else
+		{
+			Result.push_back(nullptr);
+		}
 	}
 
 	return Result;
@@ -107,7 +116,7 @@ TArray<ID3D11DepthStencilView*> FTextureAtlasPool::GetDSVs(TexturePoolHandleSet*
 TArray<ID3D11RenderTargetView*> FTextureAtlasPool::GetRTVs(TexturePoolHandleSet* HandleSet)
 {
 	TArray<ID3D11RenderTargetView*> Result;
-	if (!IsVSMMode())
+	if (!HandleSet || !IsVSMMode())
 	{
 		return Result;
 	}
@@ -115,7 +124,14 @@ TArray<ID3D11RenderTargetView*> FTextureAtlasPool::GetRTVs(TexturePoolHandleSet*
 	TArray<TexturePoolHandle> Handles = HandleSet->Handles;
 	for (const auto& Handle : Handles)
 	{
-		Result.push_back(RTVs[Handle.ArrayIndex].Get());
+		if (Handle.ArrayIndex < static_cast<uint32>(RTVs.size()))
+		{
+			Result.push_back(RTVs[Handle.ArrayIndex].Get());
+		}
+		else
+		{
+			Result.push_back(nullptr);
+		}
 	}
 
 	return Result;

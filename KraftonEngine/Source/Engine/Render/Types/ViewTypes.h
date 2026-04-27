@@ -29,6 +29,13 @@ enum class EShadowFilterMode : uint32
 	VSM = 1
 };
 
+enum class EShadowMethod : uint32
+{
+	Standard = 0,
+	PSM = 1,
+	CSM = 2
+};
+
 struct FShowFlags
 {
 	bool bPrimitives = true;
@@ -90,4 +97,5 @@ struct FViewportRenderOptions
 	bool bOverrideCameraWithSelectedLight = false;
 	int32 ShadowMapResolution = 1024;
 	EShadowFilterMode ShadowFilterMode = EShadowFilterMode::PCF;
+	EShadowMethod ShadowMethod = EShadowMethod::Standard;
 };

@@ -26,6 +26,11 @@ struct FShadowFrameBindingData
 	TArray<int32> PointLightShadowIndices;
 	TArray<int32> SpotLightShadowIndices;
 	int32 DirectionalShadowIndex = -1;
+
+	uint32 ShadowMethod = 0;
+	uint32 NumCascades = 0;
+	FVector4 CascadeSplits;
+	FShadowMatrixGPU CascadeMatrices[4];
 };
 
 struct FLightingResource

@@ -340,6 +340,17 @@ void FSystemResources::UpdateLightBuffer(FD3DDevice& Device, const FScene& Scene
 	GlobalLightingData.NumTilesX = TileCullingResource.TileCountX;
 	GlobalLightingData.NumTilesY = TileCullingResource.TileCountY;
 
+	if (ShadowBindingData)
+	{
+		GlobalLightingData.ShadowMethod = ShadowBindingData->ShadowMethod;
+		GlobalLightingData.NumCascades = ShadowBindingData->NumCascades;
+		GlobalLightingData.CascadeSplits = ShadowBindingData->CascadeSplits;
+		for (uint32 i = 0; i < 4; ++i)
+		{
+			GlobalLightingData.CascadeMatrices[i] = ShadowBindingData->CascadeMatrices[i];
+		}
+	}
+
 	LightingConstantBuffer.Update(Ctx, &GlobalLightingData, sizeof(FLightingCBData));
 	ID3D11Buffer* b4 = LightingConstantBuffer.GetBuffer();
 	Ctx->VSSetConstantBuffers(ECBSlot::Lighting, 1, &b4);

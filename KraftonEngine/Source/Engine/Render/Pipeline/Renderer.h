@@ -67,6 +67,8 @@ private:
 		ID3D11RenderTargetView* RTV = nullptr;
 		uint32 CubeIndex = static_cast<uint32>(-1);
 		uint32 CubeFaceIndex = 0;
+		FMatrix CameraVP = FMatrix::Identity;
+		bool bIsPSM = false;
 	};
 
 	//ShadowMap 렌더링에 필요한 정보 담는 녀석들을 담는 녀석

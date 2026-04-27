@@ -58,7 +58,7 @@ struct FShadowInfo
     uint Type;
     uint ArrayIndex;
     uint LightIndex;
-    float NearZ;
+    uint bIsPSM;
 
     row_major float4x4 LightVP;
     float4 SampleData;
@@ -116,7 +116,12 @@ cbuffer LightingBuffer : register(b4)
     uint LightCullingMode;
     uint VisualizeLightCulling;
     float HeatMapMax;
-    uint Pad;
+    uint ShadowMethod;
+
+    row_major float4x4 CascadeMatrices[4];
+    float4 CascadeSplits;
+    uint NumCascades;
+    uint3 _pad2;
 };
 
 StructuredBuffer<FLightInfo> AllLights : register(t8);

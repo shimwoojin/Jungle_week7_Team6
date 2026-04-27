@@ -612,6 +612,26 @@ void FEditorPropertyWidget::RenderLightShadowSettings(ULightComponent* LightComp
 		RenderOptions.ShadowFilterMode == EShadowFilterMode::VSM ? "VSM" : "PCF");
 	ImGui::EndDisabled();
 
+	static constexpr const char* MethodLabels[] = { "Standard", "PSM", "CSM" };
+	int32 MethodIndex = static_cast<int32>(RenderOptions.ShadowMethod);
+	if (MethodIndex < 0 || MethodIndex > 2) MethodIndex = 0; // Fix bounds
+	if (ImGui::BeginCombo("Shadow Method", MethodLabels[MethodIndex]))
+	{
+		for (int32 Index = 0; Index < 3; ++Index)
+		{
+			const bool bSelected = (MethodIndex == Index);
+			if (ImGui::Selectable(MethodLabels[Index], bSelected))
+			{
+				RenderOptions.ShadowMethod = static_cast<EShadowMethod>(Index);
+			}
+			if (bSelected)
+			{
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+		ImGui::EndCombo();
+	}
+
 	ImGui::Spacing();
 	ImGui::Text("PSM Depth Map");
 	ImGui::BeginChild("##PSMDepthPreview", ImVec2(0.0f, 180.0f), true);
