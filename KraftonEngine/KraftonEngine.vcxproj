@@ -241,7 +241,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Source\Engine\Render\Resource\TexturePool\CubeMapPool.cpp" />
+    <ClCompile Include="Source\Engine\Render\Resource\TexturePool\TextureCubeShadowPool.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\UVManager\FUVManager.cpp" />
     <ClCompile Include="Source\Editor\EditorEngine.cpp" />
     <ClCompile Include="Source\Editor\EditorRenderPipeline.cpp" />
@@ -396,7 +396,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Source\Engine\Render\Resource\TexturePool\CubeMapPool.h" />
+    <ClInclude Include="Source\Engine\Render\Resource\TexturePool\TextureCubeShadowPool.h" />
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\UVManager\FUVManager.h" />
     <ClInclude Include="Source\Editor\EditorEngine.h" />
     <ClInclude Include="Source\Editor\EditorRenderPipeline.h" />
