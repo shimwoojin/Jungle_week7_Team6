@@ -63,14 +63,14 @@ public:
 	uint32 GetTextureSize() const { return TextureSize; }
 	uint32 GetAllocatedLayerCount() const { return TextureLayerSize; }
 
-	virtual TexturePoolHandleSet* GetTextureHandle(TexturePoolHandleRequest HandleRequest) { return nullptr; }
-	virtual void ReleaseHandle(TexturePoolHandle& InHandle) {};
+	virtual TexturePoolHandleSet* GetTextureHandle(TexturePoolHandleRequest HandleRequest) = 0;
+	virtual void ReleaseHandle(TexturePoolHandle& InHandle) = 0;
 	virtual void ReleaseHandleSet(TexturePoolHandleSet* InHandleSet);
-	virtual ID3D11ShaderResourceView* GetDebugSRV(const TexturePoolHandle& InHandle) { return nullptr; }
+	virtual ID3D11ShaderResourceView* GetDebugSRV(const TexturePoolHandle& InHandle) = 0;
 
 protected:
-	virtual TComPtr<ID3D11Texture2D> CreateTexture(ID3D11Device* Device) { return nullptr; }
-	virtual void RebuildSRV(ID3D11Device* Device, ID3D11Texture2D* InTexture) {};
+	virtual TComPtr<ID3D11Texture2D> CreateTexture(ID3D11Device* Device) = 0;
+	virtual void RebuildSRV(ID3D11Device* Device, ID3D11Texture2D* InTexture) = 0;
 	void RebuildDSV(ID3D11Device* Device, ID3D11Texture2D* InTexture);
 
 	void ResizeLayer() { ResizeLayer(TextureLayerSize * 2); }
@@ -78,8 +78,8 @@ protected:
 
 	virtual void BroadCastHandlesUnvalid();
 
-	virtual void OnSetTextureSize() {};
-	virtual void OnSetTextureLayerSize() {};
+	virtual void OnSetTextureSize() = 0;
+	virtual void OnSetTextureLayerSize() = 0;
 
 	virtual uint32 GetTextureLayerSize() { return TextureLayerSize; }
 
