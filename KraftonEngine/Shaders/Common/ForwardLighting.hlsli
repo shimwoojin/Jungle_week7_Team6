@@ -3,7 +3,6 @@
 
 #include "Common/ForwardLightData.hlsli"
 #include "Common/ConstantBuffers.hlsli"
-#include "Common/SystemSamplers.hlsli"
 
 float GetShadowDepthBias(FShadowInfo info)
 {
