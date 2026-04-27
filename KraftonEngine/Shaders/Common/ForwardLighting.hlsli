@@ -373,6 +373,74 @@ float3 CalcRimMask(float3 N, float3 V)
     float rimDot = 1.0f - saturate(dot(N, V));
     return smoothstep(g_ToonRimMin, g_ToonRimMax, rimDot);
 }
+
+float3 CalcDirectionalToonDiffuse(float3 lightColor, float3 lightDir, float intensity, float3 N)
+{
+    float NdotL = dot(N, -lightDir);
+    return lightColor * intensity * ToonStep(NdotL);
+}
+
+float3 CalcLightToonDiffuse(FLightInfo light, float3 worldPos, float3 N)
+{
+    float3 L = light.Position - worldPos;
+    float dist = length(L);
+    L = normalize(L);
+
+    float atten = CalcAttenuation(dist, light.AttenuationRadius, light.FalloffExponent);
+    float NdotL = dot(N, L);
+
+    float spotFactor = 1.0f;
+    if (light.LightType == LIGHT_TYPE_SPOT)
+    {
+        float cosAngle = dot(-L, normalize(light.Direction));
+        spotFactor = smoothstep(light.OuterConeCos, light.InnerConeCos, cosAngle);
+    }
+
+    return light.Color.rgb * light.Intensity * ToonStep(NdotL) * atten * spotFactor;
+}
+
+void AccumulatePointSpotToonDiffuse(float3 worldPos, float3 N, float4 screenPos, inout float3 result)
+{
+    if (LightCullingMode == LIGHT_CULLING_TILE && NumTilesX > 0 && NumTilesY > 0)
+    {
+        uint2 tileCoord = min(uint2(screenPos.xy) / TILE_SIZE, uint2(NumTilesX - 1, NumTilesY - 1));
+        uint tileIdx = tileCoord.y * NumTilesX + tileCoord.x;
+        uint2 gridData = TileLightGrid[tileIdx];
+        for (uint t = 0; t < gridData.y; ++t)
+        {
+            FLightInfo light = AllLights[TileLightIndices[gridData.x + t]];
+            result += CalcLightToonDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos);
+        }
+    }
+    else if (LightCullingMode == LIGHT_CULLING_CLUSTER)
+    {
+        uint clusterIdx = ComputeClusterIndex(screenPos, worldPos);
+        uint2 gridData = g_ClusterLightGrid[clusterIdx];
+        for (uint t = 0; t < gridData.y; ++t)
+        {
+            FLightInfo light = AllLights[g_ClusterLightIndices[gridData.x + t]];
+            result += CalcLightToonDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos);
+        }
+    }
+    else
+    {
+        for (uint i = 0; i < NumActivePointLights + NumActiveSpotLights; ++i)
+        {
+            FLightInfo light = AllLights[i];
+            result += CalcLightToonDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos);
+        }
+    }
+}
+
+float3 AccumulateToonDiffuse(float3 worldPos, float3 N, float4 screenPos)
+{
+    float3 result = float3(0, 0, 0);
+    result += CalcAmbient(AmbientLight.Color.rgb, AmbientLight.Intensity);
+    result += CalcDirectionalToonDiffuse(DirectionalLight.Color.rgb, DirectionalLight.Direction,
+                                         DirectionalLight.Intensity, N) * GetDirectionalShadow(worldPos);
+    AccumulatePointSpotToonDiffuse(worldPos, N, screenPos, result);
+    return result;
+}
 #endif
 
 float3 AccumulateDiffuse(float3 worldPos, float3 N, float4 screenPos)
