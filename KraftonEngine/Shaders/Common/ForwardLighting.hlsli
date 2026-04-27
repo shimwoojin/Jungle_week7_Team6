@@ -4,8 +4,17 @@
 #include "Common/ForwardLightData.hlsli"
 #include "Common/ConstantBuffers.hlsli"
 
-//bias만 하드코딩으로 들어가는중
-static const float g_ShadowDepthBias = 0.00005f;
+float GetShadowDepthBias(FShadowInfo info)
+{
+    return max(info.ShadowParams.x, 0.0f);
+}
+
+float ApplyShadowSharpen(float shadow, FShadowInfo info)
+{
+    float sharpen = saturate(info.ShadowParams.y);
+    float contrast = 1.0f + sharpen * 4.0f;
+    return saturate((shadow - 0.5f) * contrast + 0.5f);
+}
 
 float CalcAttenuation(float dist, float radius, float falloff)
 {
@@ -28,7 +37,7 @@ float SampleAtlasShadow(FShadowInfo info, float3 worldPos)
 
     float3 ndc = lightClip.xyz / lightClip.w;
     float2 uv = ndc.xy * float2(0.5f, -0.5f) + 0.5f;
-    float depth = ndc.z - g_ShadowDepthBias;
+    float depth = ndc.z - GetShadowDepthBias(info);
 
     if (any(uv < 0.0f) || any(uv > 1.0f) || depth < 0.0f || depth > 1.0f)
     {
@@ -53,7 +62,7 @@ float SampleCubeShadow(FShadowInfo info, float3 worldPos)
     float3 toPixel = worldPos - lightPos;
     float dist = length(toPixel);
     float3 dir = toPixel / max(dist, 0.0001f);
-    float depth = saturate(dist / range) - g_ShadowDepthBias;
+    float depth = saturate(dist / range) - GetShadowDepthBias(info);
 
     return gShadowCubeArray.SampleCmpLevelZero(
         ShadowCmpSampler,
@@ -98,7 +107,7 @@ float SampleShadowInfo(FShadowInfo info, float3 worldPos)
     }
 #endif
 
-    return shadow;
+    return ApplyShadowSharpen(shadow, info);
 }
 
 float GetDirectionalShadow(float3 worldPos)

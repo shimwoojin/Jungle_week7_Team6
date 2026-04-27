@@ -248,6 +248,7 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 		Info.LightIndex = NumPointLights + SpotIndex;
 		Info.LightVP = LightVP;
 		Info.SampleData = FVector4(AtlasUVs[0].u1, AtlasUVs[0].v1, AtlasUVs[0].u2, AtlasUVs[0].v2);
+		Info.ShadowParams = FVector4(SpotLight->GetShadowBias(), SpotLight->GetShadowSharpen(), 0.0f, 0.0f);
 
 		const int32 ShadowInfoIndex = static_cast<int32>(OutShadowPassData.BindingData.ShadowInfos.size());
 		OutShadowPassData.BindingData.ShadowInfos.push_back(Info);
@@ -295,6 +296,7 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 			Info.LightIndex = 0xffffffffu;
 			Info.LightVP = LightVP;
 			Info.SampleData = FVector4(AtlasUVs[0].u1, AtlasUVs[0].v1, AtlasUVs[0].u2, AtlasUVs[0].v2);
+			Info.ShadowParams = FVector4(DirectionalLight->GetShadowBias(), DirectionalLight->GetShadowSharpen(), 0.0f, 0.0f);
 
 			OutShadowPassData.BindingData.DirectionalShadowIndex =
 				static_cast<int32>(OutShadowPassData.BindingData.ShadowInfos.size());

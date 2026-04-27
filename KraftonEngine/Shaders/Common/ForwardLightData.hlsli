@@ -59,6 +59,7 @@ struct FShadowInfo
 
     row_major float4x4 LightVP;
     float4 SampleData;
+    float4 ShadowParams;
 };
 
 struct FLightInfo

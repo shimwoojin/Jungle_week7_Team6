@@ -77,9 +77,10 @@ struct FShadowInfo
 
 	FShadowMatrixGPU LightVP;
 	FVector4 SampleData;
+	FVector4 ShadowParams; // x = ShadowBias, y = ShadowSharpen
 };
 static_assert(sizeof(FShadowInfo) % 16 == 0, "FShadowInfo must be 16-byte aligned for StructuredBuffer");
-static_assert(sizeof(FShadowInfo) == 96, "FShadowInfo size mismatch with HLSL");
+static_assert(sizeof(FShadowInfo) == 112, "FShadowInfo size mismatch with HLSL");
 
 // Point/Spot 통합 POD — StructuredBuffer<FLightInfo> (t8)
 // GPU는 LightType으로 분기, CPU는 다형성(ToGPULightInfo)으로 채움
