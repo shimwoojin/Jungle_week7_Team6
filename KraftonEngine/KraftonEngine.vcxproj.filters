@@ -690,6 +690,7 @@
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\TextureAtalsPool.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\TexturePool.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\UVManager\FUVManager.cpp" />
+    <ClCompile Include="Source\Engine\Render\Resource\TexturePool\CubeMapPool.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Editor\EditorEngine.h">
@@ -1265,6 +1266,7 @@
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\TextureAtalsPool.h" />
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\TexturePool.h" />
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\UVManager\FUVManager.h" />
+    <ClInclude Include="Source\Engine\Render\Resource\TexturePool\CubeMapPool.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="KraftonEngine.rc" />
