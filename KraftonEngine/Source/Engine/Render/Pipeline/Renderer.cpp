@@ -3,10 +3,12 @@
 #include "Render/Types/RenderTypes.h"
 #include "Render/Resource/ShaderManager.h"
 #include "Render/Resource/TexturePool/TextureAtalsPool.h"
+#include "Render/Resource/TexturePool/TextureCubeShadowPool.h"
 #include "Core/Log.h"
 #include "Render/Proxy/FScene.h"
 #include "Render/Proxy/SceneEnvironment.h"
 #include "Render/Proxy/PrimitiveSceneProxy.h"
+#include "Component/Light/PointLightComponent.h"
 #include "Component/Light/SpotLightComponent.h"
 #include "Component/Light/DirectionalLightComponent.h"
 #include "Profiling/Stats.h"
@@ -79,6 +81,18 @@ namespace
 			Viewport.MaxDepth = 1.0f;
 			return Viewport;
 		}
+
+		static D3D11_VIEWPORT MakeFullViewport(uint32 TextureSize)
+		{
+			D3D11_VIEWPORT Viewport = {};
+			Viewport.TopLeftX = 0.0f;
+			Viewport.TopLeftY = 0.0f;
+			Viewport.Width = static_cast<float>(TextureSize);
+			Viewport.Height = static_cast<float>(TextureSize);
+			Viewport.MinDepth = 0.0f;
+			Viewport.MaxDepth = 1.0f;
+			return Viewport;
+		}
 	};
 
 	bool IsOpaqueShadowCaster(const FPrimitiveSceneProxy* Proxy)
@@ -103,6 +117,7 @@ void FRenderer::Create(HWND hWindow)
 	FShaderManager::Get().Initialize(Device.GetDevice());
 	Resources.Create(Device.GetDevice());
 	FTextureAtlasPool::Get().Initialize(Device.GetDevice(), Device.GetDeviceContext(), 4096);
+	FTextureCubeShadowPool::Get().Initialize(Device.GetDevice(), 1024, 4);
 
 	TileBasedCulling.Initialize(Device.GetDevice());
 	ClusteredLightCuller.Initialize(Device.GetDevice(), Device.GetDeviceContext());
@@ -123,6 +138,7 @@ void FRenderer::Release()
 	Builder.Release();
 
 	Resources.Release();
+	FTextureCubeShadowPool::Get().Release();
 	TileBasedCulling.Release();
 	ClusteredLightCuller.Release();
 	FShaderManager::Get().Release();
@@ -159,6 +175,28 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 	//현재는 전체 중 쉐도우 옵션 켜지고 화면에 영향을 주는 놈들만, 
 	//추후에 광 범위에 오브젝트가 들어와서 Depth에 변화가 생기는 놈들 까지 검사 추가
 	//중요도에 따라서 컷하는 것도 추가
+#pragma region SearchUpdateNeededPointLight
+	TArray<uint32> ShadowedPointIndices;
+	ShadowedPointIndices.reserve(Env.GetNumPointLights());
+
+	for (uint32 PointIndex = 0; PointIndex < Env.GetNumPointLights(); ++PointIndex)
+	{
+		const UPointLightComponent* PointLight = Env.GetPointLightOwner(PointIndex);
+		if (!PointLight || !PointLight->IsCastShadow())
+		{
+			continue;
+		}
+
+		const FPointLightParams& Params = Env.GetPointLight(PointIndex);
+		if (!Frame.FrustumVolume.IntersectAABB(FShadowUtil::MakeSphereBounds(Params.Position, Params.AttenuationRadius)))
+		{
+			continue;
+		}
+
+		ShadowedPointIndices.push_back(PointIndex);
+	}
+#pragma endregion
+
 #pragma region SearchUpdateNeededSpotLight
 	TArray<uint32> ShadowedSpotIndices;
 	ShadowedSpotIndices.reserve(Env.GetNumSpotLights());
@@ -200,10 +238,105 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 			const_cast<USpotLightComponent*>(SpotLight)->GetShadowHandleSet();
 		}
 	}
+	for (uint32 PointIndex : ShadowedPointIndices)
+	{
+		const UPointLightComponent* PointLight = Env.GetPointLightOwner(PointIndex);
+		if (PointLight)
+		{
+			const_cast<UPointLightComponent*>(PointLight)->GetShadowMapKey();
+		}
+	}
 #pragma endregion
 
 	// 2차 패스: 최종적으로 안정화된 handle/DSV/UV로 render task를 만든다.
 #pragma region CreateRenderTask
+
+	//PointLightTask 생성 관련
+#pragma region PointLightTask
+	for (uint32 PointIndex : ShadowedPointIndices)
+	{
+		const UPointLightComponent* PointLight = Env.GetPointLightOwner(PointIndex);
+		const FPointLightParams& Params = Env.GetPointLight(PointIndex);
+		if (!PointLight)
+		{
+			continue;
+		}
+
+		const FShadowMapKey ShadowMapKey = const_cast<UPointLightComponent*>(PointLight)->GetShadowMapKey();
+		FShadowCubeHandle CubeHandle = ShadowMapKey.CubeMap;
+		if (!CubeHandle.IsValid())
+		{
+			continue;
+		}
+
+		const float NearZ = FMath::Clamp(Params.AttenuationRadius * 0.01f, 0.05f, 5.0f);
+		const float FarZ = (Params.AttenuationRadius > NearZ + 1.0f) ? Params.AttenuationRadius : (NearZ + 1.0f);
+		const FMatrix LightProj = FShadowUtil::MakeReversedZPerspective(FMath::Pi * 0.5f, 1.0f, NearZ, FarZ);
+		const D3D11_VIEWPORT CubeViewport = FShadowUtil::MakeFullViewport(FTextureCubeShadowPool::Get().GetResolution());
+
+		const FVector FaceForwards[FTextureCubeShadowPool::CubeFaceCount] =
+		{
+			FVector(1.0f, 0.0f, 0.0f),
+			FVector(-1.0f, 0.0f, 0.0f),
+			FVector(0.0f, 1.0f, 0.0f),
+			FVector(0.0f, -1.0f, 0.0f),
+			FVector(0.0f, 0.0f, 1.0f),
+			FVector(0.0f, 0.0f, -1.0f)
+		};
+		const FVector FaceUps[FTextureCubeShadowPool::CubeFaceCount] =
+		{
+			FVector(0.0f, 1.0f, 0.0f),
+			FVector(0.0f, 1.0f, 0.0f),
+			FVector(0.0f, 0.0f, -1.0f),
+			FVector(0.0f, 0.0f, 1.0f),
+			FVector(0.0f, 1.0f, 0.0f),
+			FVector(0.0f, 1.0f, 0.0f)
+		};
+
+		bool bAllFacesValid = true;
+		for (uint32 FaceIndex = 0; FaceIndex < FTextureCubeShadowPool::CubeFaceCount; ++FaceIndex)
+		{
+			if (!FTextureCubeShadowPool::Get().GetFaceDSV(CubeHandle, FaceIndex))
+			{
+				bAllFacesValid = false;
+				break;
+			}
+		}
+		if (!bAllFacesValid)
+		{
+			continue;
+		}
+
+		for (uint32 FaceIndex = 0; FaceIndex < FTextureCubeShadowPool::CubeFaceCount; ++FaceIndex)
+		{
+			const FVector Forward = FaceForwards[FaceIndex];
+			const FVector Up = FaceUps[FaceIndex];
+			const FVector Right = Up.Cross(Forward);
+			const FMatrix LightView = FShadowUtil::MakeAxesViewMatrix(Params.Position, Right, Up, Forward);
+			const FMatrix LightVP = LightView * LightProj;
+
+			FShadowRenderTask& Task = OutShadowPassData.RenderTasks.emplace_back();
+			Task.TargetType = EShadowRenderTargetType::CubeFace;
+			Task.LightVP = LightVP;
+			Task.ShadowFrustum.UpdateFromMatrix(LightVP);
+			Task.Viewport = CubeViewport;
+			Task.DSV = FTextureCubeShadowPool::Get().GetFaceDSV(CubeHandle, FaceIndex);
+			Task.CubeIndex = CubeHandle.CubeIndex;
+			Task.CubeFaceIndex = FaceIndex;
+		}
+
+		FShadowInfo Info = {};
+		Info.Type = 1;
+		Info.ArrayIndex = CubeHandle.CubeIndex;
+		Info.LightIndex = PointIndex;
+		Info.LightVP = FMatrix::Identity;
+		Info.SampleData = FVector4(Params.Position.X, Params.Position.Y, Params.Position.Z, FarZ);
+
+		const int32 ShadowInfoIndex = static_cast<int32>(OutShadowPassData.BindingData.ShadowInfos.size());
+		OutShadowPassData.BindingData.ShadowInfos.push_back(Info);
+		OutShadowPassData.BindingData.PointLightShadowIndices[PointIndex] = ShadowInfoIndex;
+	}
+#pragma endregion
 
 	//SpotLightTask 생성 관련
 #pragma region SpotLightTask
@@ -237,6 +370,7 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 		FMatrix LightVP = LightView * LightProj;
 
 		FShadowRenderTask& Task = OutShadowPassData.RenderTasks.emplace_back();
+		Task.TargetType = EShadowRenderTargetType::Atlas2D;
 		Task.LightVP = LightVP;
 		Task.ShadowFrustum.UpdateFromMatrix(LightVP);
 		Task.Viewport = FShadowUtil::MakeAtlasViewport(AtlasUVs[0], AtlasTextureSize);
@@ -285,6 +419,7 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 			FMatrix LightVP = LightView * LightProj;
 
 			FShadowRenderTask& Task = OutShadowPassData.RenderTasks.emplace_back();
+			Task.TargetType = EShadowRenderTargetType::Atlas2D;
 			Task.LightVP = LightVP;
 			Task.ShadowFrustum.UpdateFromMatrix(LightVP);
 			Task.Viewport = FShadowUtil::MakeAtlasViewport(AtlasUVs[0], AtlasTextureSize);

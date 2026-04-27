@@ -50,13 +50,22 @@ public:
 	void UnbindClusterCullingResources();
 
 private:
+	enum class EShadowRenderTargetType
+	{
+		Atlas2D,
+		CubeFace
+	};
+
 	//ShadowMap 렌더링에 필요한 정보 담는 녀석
 	struct FShadowRenderTask
 	{
+		EShadowRenderTargetType TargetType = EShadowRenderTargetType::Atlas2D;
 		FMatrix LightVP = FMatrix::Identity;
 		FConvexVolume ShadowFrustum;
 		D3D11_VIEWPORT Viewport = {};
 		ID3D11DepthStencilView* DSV = nullptr;
+		uint32 CubeIndex = static_cast<uint32>(-1);
+		uint32 CubeFaceIndex = 0;
 	};
 
 	//ShadowMap 렌더링에 필요한 정보 담는 녀석들을 담는 녀석

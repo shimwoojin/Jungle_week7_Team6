@@ -1,15 +1,18 @@
 ﻿#pragma once
 #include "Component/Light/LightComponentBase.h"
 #include "Render/Resource/TexturePool/TextureAtalsPool.h"
+#include "Render/Resource/TexturePool/TextureCubeShadowPool.h"
 
 using FShadowHandle = FTexturePoolBase::TexturePoolHandle;
 using FShadowHandleSet = FTexturePoolBase::TexturePoolHandleSet;
+using FShadowCubeHandle = FTextureCubeShadowPool::FCubeShadowHandle;
 
 struct FShadowMapKey
 {
 	bool IsAtlas() { return !Atlas.empty(); }
+	bool IsCubeMap() { return CubeMap.IsValid(); }
 	TArray<FAtlasUV> Atlas;
-	//Todo: CubMap 그거 추가
+	FShadowCubeHandle CubeMap;
 
 };
 

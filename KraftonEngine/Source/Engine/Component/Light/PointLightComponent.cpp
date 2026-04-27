@@ -1,4 +1,4 @@
-#include "PointLightComponent.h"
+﻿#include "PointLightComponent.h"
 #include "Engine/Serialization/Archive.h"
 #include "GameFramework/AActor.h"
 #include "GameFramework/World.h"
@@ -27,6 +27,11 @@ namespace
 }
 
 IMPLEMENT_CLASS(UPointLightComponent, ULightComponent)
+
+UPointLightComponent::~UPointLightComponent()
+{
+	ReleaseCubeShadowHandle();
+}
 
 void UPointLightComponent::ContributeSelectedVisuals(FScene& Scene) const
 {
@@ -62,6 +67,35 @@ void UPointLightComponent::DestroyFromScene()
 	UWorld* World = Owner->GetWorld();
 	if (!World) return;
 	World->GetScene().GetEnvironment().RemovePointLight(this);
+	ReleaseCubeShadowHandle();
+}
+
+FShadowCubeHandle UPointLightComponent::GetCubeShadowHandle()
+{
+	if (!CubeShadowHandle.IsValid())
+	{
+		CubeShadowHandle = FTextureCubeShadowPool::Get().Allocate();
+	}
+
+	return CubeShadowHandle;
+}
+
+void UPointLightComponent::ReleaseCubeShadowHandle()
+{
+	if (!CubeShadowHandle.IsValid())
+	{
+		return;
+	}
+
+	FTextureCubeShadowPool::Get().ReleaseHandle(CubeShadowHandle);
+	CubeShadowHandle = {};
+}
+
+FShadowMapKey UPointLightComponent::GetShadowMapKey()
+{
+	FShadowMapKey Result;
+	Result.CubeMap = GetCubeShadowHandle();
+	return Result;
 }
 
 void UPointLightComponent::Serialize(FArchive& Ar)
