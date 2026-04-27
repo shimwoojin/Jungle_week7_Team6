@@ -59,7 +59,7 @@ private:
 #pragma endregion
 
 public:
-	void Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, uint32 InTextureSize);
+	virtual void Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, uint32 InTextureSize);
 	uint32 GetTextureSize() const { return TextureSize; }
 	uint32 GetAllocatedLayerCount() const { return TextureLayerSize; }
 
@@ -71,7 +71,7 @@ public:
 protected:
 	virtual TComPtr<ID3D11Texture2D> CreateTexture(ID3D11Device* Device) = 0;
 	virtual void RebuildSRV(ID3D11Device* Device, ID3D11Texture2D* InTexture) = 0;
-	void RebuildDSV(ID3D11Device* Device, ID3D11Texture2D* InTexture);
+	virtual void RebuildDSV(ID3D11Device* Device, ID3D11Texture2D* InTexture);
 
 	void ResizeLayer() { ResizeLayer(TextureLayerSize * 2); }
 	void ResizeLayer(uint32 InNewLayerSize);
@@ -82,6 +82,8 @@ protected:
 	virtual void OnSetTextureLayerSize() = 0;
 
 	virtual uint32 GetTextureLayerSize() { return TextureLayerSize; }
+	ID3D11Device* GetDevice() const { return Device; }
+	ID3D11DeviceContext* GetDeviceContext() const { return DeviceContext; }
 
 private:
 	void SetTextureLayerSize(uint32 InTextureLayerSize);
@@ -97,8 +99,8 @@ protected:
 
 	TArray<std::unique_ptr<TexturePoolHandleSet>> AllocatedHandleList;
 
-private:
 	TComPtr<ID3D11Texture2D> Texture;
+private:
 
 	ID3D11Device* Device = nullptr;
 	ID3D11DeviceContext* DeviceContext = nullptr;

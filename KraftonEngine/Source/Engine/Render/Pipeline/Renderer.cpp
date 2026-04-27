@@ -148,6 +148,9 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 		return;
 	}
 
+	const bool bUseVSM = Frame.RenderOptions.ShadowFilterMode == EShadowFilterMode::VSM;
+	FTextureAtlasPool::Get().EnsureAtlasMode(Frame.RenderOptions.ShadowFilterMode);
+
 	const uint32 AtlasTextureSize = FTextureAtlasPool::Get().GetTextureSize();
 	const uint32 NumPointLights = Env.GetNumPointLights();
 	const bool bShadowDirectional = [&Env]()
@@ -219,7 +222,9 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 
 		TArray<FAtlasUV> AtlasUVs = FTextureAtlasPool::Get().GetAtlasUVArray(HandleSet);
 		TArray<ID3D11DepthStencilView*> DSVs = FTextureAtlasPool::Get().GetDSVs(HandleSet);
-		if (AtlasUVs.empty() || DSVs.empty() || !DSVs[0])
+		TArray<ID3D11RenderTargetView*> RTVs = bUseVSM ? FTextureAtlasPool::Get().GetRTVs(HandleSet) : TArray<ID3D11RenderTargetView*>();
+		const bool bMissingVSMTarget = bUseVSM && (RTVs.empty() || !RTVs[0]);
+		if (AtlasUVs.empty() || DSVs.empty() || !DSVs[0] || bMissingVSMTarget)
 		{
 			continue;
 		}
@@ -241,6 +246,7 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 		Task.ShadowFrustum.UpdateFromMatrix(LightVP);
 		Task.Viewport = FShadowUtil::MakeAtlasViewport(AtlasUVs[0], AtlasTextureSize);
 		Task.DSV = DSVs[0];
+		Task.RTV = bUseVSM ? RTVs[0] : nullptr;
 
 		FShadowInfo Info = {};
 		Info.Type = 0;
@@ -265,7 +271,8 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 		FShadowHandleSet* HandleSet = const_cast<UDirectionalLightComponent*>(DirectionalLight)->GetShadowHandleSet();
 		TArray<FAtlasUV> AtlasUVs = HandleSet ? FTextureAtlasPool::Get().GetAtlasUVArray(HandleSet) : TArray<FAtlasUV>();
 		TArray<ID3D11DepthStencilView*> DSVs = HandleSet ? FTextureAtlasPool::Get().GetDSVs(HandleSet) : TArray<ID3D11DepthStencilView*>();
-		if (!AtlasUVs.empty() && !DSVs.empty() && DSVs[0])
+		TArray<ID3D11RenderTargetView*> RTVs = (bUseVSM && HandleSet) ? FTextureAtlasPool::Get().GetRTVs(HandleSet) : TArray<ID3D11RenderTargetView*>();
+		if (!AtlasUVs.empty() && !DSVs.empty() && DSVs[0] && (!bUseVSM || (!RTVs.empty() && RTVs[0])))
 		{
 			const float ShadowDistance = FMath::Clamp(Frame.FarClip * 0.15f, 15.0f, 80.0f);
 			const float ShadowExtent = FMath::Clamp(Frame.FarClip * 0.2f, 20.0f, 120.0f);
@@ -289,6 +296,7 @@ void FRenderer::BuildShadowPassData(const FFrameContext& Frame, const FScene& Sc
 			Task.ShadowFrustum.UpdateFromMatrix(LightVP);
 			Task.Viewport = FShadowUtil::MakeAtlasViewport(AtlasUVs[0], AtlasTextureSize);
 			Task.DSV = DSVs[0];
+			Task.RTV = bUseVSM ? RTVs[0] : nullptr;
 
 			FShadowInfo Info = {};
 			Info.Type = 0;
@@ -316,10 +324,14 @@ void FRenderer::RenderShadowPass(const FFrameContext& Frame, const FScene& Scene
 	}
 
 	ID3D11DeviceContext* Ctx = Device.GetDeviceContext();
+	const bool bUseVSM = Frame.RenderOptions.ShadowFilterMode == EShadowFilterMode::VSM;
 
-	//VSM이면 ShadowDepthShader 쉐이더를 다르게 줘야함, RTV에 E[z], E[z^2] 그리는 Shader필요
-	FShader* ShadowDepthShader = FShaderManager::Get().GetOrCreate(EShaderPath::ShadowDepth);
-	FShader* ShadowClearShader = FShaderManager::Get().GetOrCreate(EShaderPath::ShadowClear);
+	FShader* ShadowDepthShader = bUseVSM
+		? FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::ShadowDepth, EShadowPassDefines::VSM))
+		: FShaderManager::Get().GetOrCreate(EShaderPath::ShadowDepth);
+	FShader* ShadowClearShader = bUseVSM
+		? FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::ShadowClear, EShadowPassDefines::VSM))
+		: FShaderManager::Get().GetOrCreate(EShaderPath::ShadowClear);
 	if (!ShadowDepthShader || !ShadowClearShader)
 	{
 		return;
@@ -327,15 +339,21 @@ void FRenderer::RenderShadowPass(const FFrameContext& Frame, const FScene& Scene
 
 	Resources.UnbindShadowResources(Device);
 
-	Resources.SetBlendState(Device, EBlendState::NoColor);
+	Resources.SetBlendState(Device, bUseVSM ? EBlendState::Opaque : EBlendState::NoColor);
 	Resources.SetRasterizerState(Device, ERasterizerState::SolidBackCull);
 
 	ID3D11Buffer* ShadowPassCBHandle = ShadowPassBuffer.GetBuffer();
 
 	for (const FShadowRenderTask& Task : ShadowPassData.RenderTasks)
 	{
-		//VSM이면 RTV도 설정해 줘야함 RTV는 TexturePool에서 관리 할거임 근데 아직 없음
-		Ctx->OMSetRenderTargets(0, nullptr, Task.DSV);
+		if (Task.RTV)
+		{
+			Ctx->OMSetRenderTargets(1, &Task.RTV, Task.DSV);
+		}
+		else
+		{
+			Ctx->OMSetRenderTargets(0, nullptr, Task.DSV);
+		}
 		Ctx->RSSetViewports(1, &Task.Viewport);
 
 		Resources.SetDepthStencilState(Device, EDepthStencilState::ShadowClear);
@@ -345,7 +363,10 @@ void FRenderer::RenderShadowPass(const FFrameContext& Frame, const FScene& Scene
 
 		Resources.SetDepthStencilState(Device, EDepthStencilState::ShadowDepth);
 		ShadowDepthShader->Bind(Ctx);
-		Ctx->PSSetShader(nullptr, nullptr, 0);
+		if (!bUseVSM)
+		{
+			Ctx->PSSetShader(nullptr, nullptr, 0);
+		}
 
 		FShadowPassConstants ShadowPassConstants = {};
 		ShadowPassConstants.LightVP = Task.LightVP;

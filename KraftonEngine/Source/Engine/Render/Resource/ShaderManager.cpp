@@ -52,6 +52,12 @@ void FShaderManager::Initialize(ID3D11Device* InDevice)
 	PreCompile(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Lambert), EUberLitDefines::Lambert);
 	PreCompile(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Phong),   EUberLitDefines::Phong);
 	PreCompile(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Toon),    EUberLitDefines::Toon);
+	PreCompile(FShaderKey(EShaderPath::UberLit, EUberLitDefines::GouraudVSM), EUberLitDefines::GouraudVSM);
+	PreCompile(FShaderKey(EShaderPath::UberLit, EUberLitDefines::LambertVSM), EUberLitDefines::LambertVSM);
+	PreCompile(FShaderKey(EShaderPath::UberLit, EUberLitDefines::PhongVSM),   EUberLitDefines::PhongVSM);
+	PreCompile(FShaderKey(EShaderPath::UberLit, EUberLitDefines::ToonVSM),    EUberLitDefines::ToonVSM);
+	PreCompile(FShaderKey(EShaderPath::ShadowDepth, EShadowPassDefines::VSM), EShadowPassDefines::VSM);
+	PreCompile(FShaderKey(EShaderPath::ShadowClear, EShadowPassDefines::VSM), EShadowPassDefines::VSM);
 
 	// include 역매핑 구축
 	RebuildIncludeDependents();

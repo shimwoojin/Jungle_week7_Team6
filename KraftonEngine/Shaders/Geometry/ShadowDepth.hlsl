@@ -25,5 +25,10 @@ VSOutput VS(VSInput input)
 
 float4 PS(VSOutput input) : SV_TARGET
 {
+#if defined(SHADOW_ENABLE_VSM) && SHADOW_ENABLE_VSM
+    float depth = saturate(1.0f - input.Position.z);
+    return float4(depth, depth * depth, 0.0, 0.0);
+#else
     return float4(0.0, 0.0, 0.0, 0.0);
+#endif
 }

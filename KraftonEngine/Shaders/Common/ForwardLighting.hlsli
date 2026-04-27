@@ -54,6 +54,48 @@ float SampleAtlasShadow(FShadowInfo info, float3 worldPos)
         depth);
 }
 
+float ReduceLightBleed(float probability)
+{
+    const float bleedReduction = 0.2f;
+    return saturate((probability - bleedReduction) / (1.0f - bleedReduction));
+}
+
+float SampleAtlasShadowVSM(FShadowInfo info, float3 worldPos)
+{
+    float4 lightClip = mul(float4(worldPos, 1.0f), info.LightVP);
+    if (abs(lightClip.w) < 1e-5f)
+    {
+        return 1.0f;
+    }
+
+    float3 ndc = lightClip.xyz / lightClip.w;
+    float2 uv = ndc.xy * float2(0.5f, -0.5f) + 0.5f;
+    float depth = (1.0f - ndc.z) + GetShadowDepthBias(info);
+
+    if (any(uv < 0.0f) || any(uv > 1.0f) || depth < 0.0f || depth > 1.0f)
+    {
+        return 1.0f;
+    }
+
+    float2 atlasMin = info.SampleData.xy;
+    float2 atlasMax = info.SampleData.zw;
+    float2 atlasUV = lerp(atlasMin, atlasMax, uv);
+    float2 moments = gShadowAtlasArray.SampleLevel(
+        LinearClampSampler,
+        float3(atlasUV, info.ArrayIndex),
+        0.0f).xy;
+
+    if (depth <= moments.x)
+    {
+        return 1.0f;
+    }
+
+    float variance = max(moments.y - moments.x * moments.x, 0.00002f);
+    float delta = depth - moments.x;
+    float probability = variance / (variance + delta * delta);
+    return ReduceLightBleed(probability);
+}
+
 float SampleCubeShadow(FShadowInfo info, float3 worldPos)
 {
     float3 lightPos = info.SampleData.xyz;
@@ -84,7 +126,14 @@ float SampleShadowInfo(FShadowInfo info, float3 worldPos)
         shadow = SampleCubeShadow(info, worldPos);
     }
 #elif defined(SHADOW_ENABLE_VSM) && SHADOW_ENABLE_VSM
-    shadow = 1.0f;
+    if (info.Type == 0)
+    {
+        shadow = SampleAtlasShadowVSM(info, worldPos);
+    }
+    else
+    {
+        shadow = SampleCubeShadow(info, worldPos);
+    }
 #elif defined(SHADOW_ENABLE_EVSM) && SHADOW_ENABLE_EVSM
     shadow = 1.0f;
 #elif defined(SHADOW_ENABLE_CSM) && SHADOW_ENABLE_CSM

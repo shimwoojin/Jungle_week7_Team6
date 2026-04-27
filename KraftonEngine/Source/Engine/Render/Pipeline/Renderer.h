@@ -57,6 +57,7 @@ private:
 		FConvexVolume ShadowFrustum;
 		D3D11_VIEWPORT Viewport = {};
 		ID3D11DepthStencilView* DSV = nullptr;
+		ID3D11RenderTargetView* RTV = nullptr;
 	};
 
 	//ShadowMap 렌더링에 필요한 정보 담는 녀석들을 담는 녀석

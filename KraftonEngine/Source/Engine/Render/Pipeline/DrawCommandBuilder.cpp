@@ -56,6 +56,7 @@ void FDrawCommandBuilder::BeginCollect(const FFrameContext& Frame, uint32 MaxPro
 {
 	DrawCommandList.Reset();
 	CollectViewMode = Frame.RenderOptions.ViewMode;
+	CollectShadowFilterMode = Frame.RenderOptions.ShadowFilterMode;
 	bHasSelectionMaskCommands = false;
 
 	// PerObjectCBPool 미리 할당 — Collect 도중 resize로 FDrawCommand.PerObjectCB
@@ -81,14 +82,16 @@ FShader* FDrawCommandBuilder::SelectEffectiveShader(FShader* ProxyShader, EViewM
 	if (ProxyShader != FShaderManager::Get().GetOrCreate(EShaderPath::UberLit))
 		return ProxyShader;
 
+	const bool bUseVSM = CollectShadowFilterMode == EShadowFilterMode::VSM;
+
 	switch (ViewMode)
 	{
 	case EViewMode::Unlit:        return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Unlit));
-	case EViewMode::Lit_Gouraud:  return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Gouraud));
-	case EViewMode::Lit_Lambert:  return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Lambert));
-	case EViewMode::Lit_Phong:    return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Phong));
-	case EViewMode::Lit_Toon:     return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Toon));
-	case EViewMode::LightCulling: return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Phong));
+	case EViewMode::Lit_Gouraud:  return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, bUseVSM ? EUberLitDefines::GouraudVSM : EUberLitDefines::Gouraud));
+	case EViewMode::Lit_Lambert:  return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, bUseVSM ? EUberLitDefines::LambertVSM : EUberLitDefines::Lambert));
+	case EViewMode::Lit_Phong:    return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, bUseVSM ? EUberLitDefines::PhongVSM : EUberLitDefines::Phong));
+	case EViewMode::Lit_Toon:     return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, bUseVSM ? EUberLitDefines::ToonVSM : EUberLitDefines::Toon));
+	case EViewMode::LightCulling: return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, bUseVSM ? EUberLitDefines::PhongVSM : EUberLitDefines::Phong));
 	default:                      return ProxyShader;
 	}
 }

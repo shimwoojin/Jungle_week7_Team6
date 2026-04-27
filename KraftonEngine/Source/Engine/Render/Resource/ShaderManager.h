@@ -93,6 +93,15 @@ namespace EUberLitDefines
 	inline const D3D_SHADER_MACRO Lambert[] = { {"LIGHTING_MODEL_LAMBERT", "1"}, {nullptr, nullptr} };
 	inline const D3D_SHADER_MACRO Phong[] = { {"LIGHTING_MODEL_PHONG", "1"}, {nullptr, nullptr} };
 	inline const D3D_SHADER_MACRO Toon[] = { {"LIGHTING_MODEL_TOON", "1"}, {nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO GouraudVSM[] = { {"LIGHTING_MODEL_GOURAUD", "1"}, {"SHADOW_ENABLE_VSM", "1"}, {nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO LambertVSM[] = { {"LIGHTING_MODEL_LAMBERT", "1"}, {"SHADOW_ENABLE_VSM", "1"}, {nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO PhongVSM[] = { {"LIGHTING_MODEL_PHONG", "1"}, {"SHADOW_ENABLE_VSM", "1"}, {nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO ToonVSM[] = { {"LIGHTING_MODEL_TOON", "1"}, {"SHADOW_ENABLE_VSM", "1"}, {nullptr, nullptr} };
+}
+
+namespace EShadowPassDefines
+{
+	inline const D3D_SHADER_MACRO VSM[] = { {"SHADOW_ENABLE_VSM", "1"}, {nullptr, nullptr} };
 }
 
 // 셰이더별 저장된 매크로 정보 (핫 리로드 시 재컴파일에 사용)
