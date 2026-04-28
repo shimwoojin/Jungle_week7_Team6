@@ -1,14 +1,202 @@
 ﻿#include "TextureAtalsPool.h"
+#include "Render/Pipeline/RenderConstants.h"
+#include "Render/Resource/ShaderManager.h"
+#include <algorithm>
+#include <array>
+#include <cmath>
 
 template<typename T>
 using TComPtr = Microsoft::WRL::ComPtr<T>;
 using TexturePoolHandle = FTexturePoolBase::TexturePoolHandle;
 using TexturePoolHandleSet = FTexturePoolBase::TexturePoolHandleSet;
 
+namespace
+{
+	constexpr uint32 HandleDebugKeyPrefix = 0x40000000u;
+	constexpr uint32 LayerDebugKeyPrefix = 0x80000000u;
+	constexpr float ShadowDebugContrast = 75.0f;
+
+	template<typename T>
+	void SafeRelease(T*& Ptr)
+	{
+		if (Ptr)
+		{
+			Ptr->Release();
+			Ptr = nullptr;
+		}
+	}
+
+	uint32 GetPreviewExtent(float UVMin, float UVMax, uint32 TextureSize)
+	{
+		const float Extent = std::abs(UVMax - UVMin) * static_cast<float>(TextureSize);
+		const uint32 PixelExtent = static_cast<uint32>(std::lround(Extent));
+		return PixelExtent > 0 ? PixelExtent : 1u;
+	}
+
+	struct FDebugShadowConstants
+	{
+		float SrcUVRect[4] = { 0.0f, 0.0f, 1.0f, 1.0f };
+		uint32 SrcSlice = 0;
+		uint32 bReversedZ = 1;
+		float Contrast = ShadowDebugContrast;
+		float Padding = 0.0f;
+	};
+
+	struct FDebugRegionDraw
+	{
+		FAtlasUV UV = {};
+		uint32 SliceIndex = 0;
+		D3D11_VIEWPORT Viewport = {};
+	};
+
+	struct FDebugPassStateBackup
+	{
+		std::array<ID3D11RenderTargetView*, D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT> RenderTargets = {};
+		ID3D11DepthStencilView* DepthStencilView = nullptr;
+		std::array<D3D11_VIEWPORT, D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE> Viewports = {};
+		UINT ViewportCount = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
+		ID3D11VertexShader* VertexShader = nullptr;
+		ID3D11PixelShader* PixelShader = nullptr;
+		ID3D11InputLayout* InputLayout = nullptr;
+		D3D11_PRIMITIVE_TOPOLOGY PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+		ID3D11ShaderResourceView* PSSRV0 = nullptr;
+		ID3D11SamplerState* PSSampler0 = nullptr;
+		ID3D11Buffer* VSCB = nullptr;
+		ID3D11Buffer* PSCB = nullptr;
+		ID3D11RasterizerState* RasterizerState = nullptr;
+		ID3D11BlendState* BlendState = nullptr;
+		float BlendFactor[4] = {};
+		UINT SampleMask = 0xffffffffu;
+		ID3D11DepthStencilState* DepthStencilState = nullptr;
+		UINT StencilRef = 0;
+
+		void Capture(ID3D11DeviceContext* Context)
+		{
+			Context->OMGetRenderTargets(
+				D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT,
+				RenderTargets.data(),
+				&DepthStencilView);
+			Context->RSGetViewports(&ViewportCount, Viewports.data());
+			Context->VSGetShader(&VertexShader, nullptr, nullptr);
+			Context->PSGetShader(&PixelShader, nullptr, nullptr);
+			Context->IAGetInputLayout(&InputLayout);
+			Context->IAGetPrimitiveTopology(&PrimitiveTopology);
+			Context->PSGetShaderResources(0, 1, &PSSRV0);
+			Context->PSGetSamplers(0, 1, &PSSampler0);
+			Context->VSGetConstantBuffers(ECBSlot::PerShader0, 1, &VSCB);
+			Context->PSGetConstantBuffers(ECBSlot::PerShader0, 1, &PSCB);
+			Context->RSGetState(&RasterizerState);
+			Context->OMGetBlendState(&BlendState, BlendFactor, &SampleMask);
+			Context->OMGetDepthStencilState(&DepthStencilState, &StencilRef);
+		}
+
+		void Restore(ID3D11DeviceContext* Context)
+		{
+			Context->OMSetRenderTargets(
+				D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT,
+				RenderTargets.data(),
+				DepthStencilView);
+			if (ViewportCount > 0)
+			{
+				Context->RSSetViewports(ViewportCount, Viewports.data());
+			}
+			Context->VSSetShader(VertexShader, nullptr, 0);
+			Context->PSSetShader(PixelShader, nullptr, 0);
+			Context->IASetInputLayout(InputLayout);
+			Context->IASetPrimitiveTopology(PrimitiveTopology);
+			Context->PSSetShaderResources(0, 1, &PSSRV0);
+			Context->PSSetSamplers(0, 1, &PSSampler0);
+			Context->VSSetConstantBuffers(ECBSlot::PerShader0, 1, &VSCB);
+			Context->PSSetConstantBuffers(ECBSlot::PerShader0, 1, &PSCB);
+			Context->RSSetState(RasterizerState);
+			Context->OMSetBlendState(BlendState, BlendFactor, SampleMask);
+			Context->OMSetDepthStencilState(DepthStencilState, StencilRef);
+
+			for (ID3D11RenderTargetView*& RenderTarget : RenderTargets)
+			{
+				SafeRelease(RenderTarget);
+			}
+			SafeRelease(DepthStencilView);
+			SafeRelease(VertexShader);
+			SafeRelease(PixelShader);
+			SafeRelease(InputLayout);
+			SafeRelease(PSSRV0);
+			SafeRelease(PSSampler0);
+			SafeRelease(VSCB);
+			SafeRelease(PSCB);
+			SafeRelease(RasterizerState);
+			SafeRelease(BlendState);
+			SafeRelease(DepthStencilState);
+		}
+	};
+
+	bool RenderShadowDebugPreview(
+		ID3D11DeviceContext* DeviceContext,
+		FConstantBuffer& DebugConstantBuffer,
+		ID3D11ShaderResourceView* AtlasSRV,
+		ID3D11RenderTargetView* DebugRTV,
+		ID3D11SamplerState* PointClampSampler,
+		ID3D11RasterizerState* RasterizerState,
+		ID3D11DepthStencilState* DepthStencilState,
+		const TArray<FDebugRegionDraw>& Draws)
+	{
+		if (!DeviceContext || !AtlasSRV || !DebugRTV || !PointClampSampler || !RasterizerState || !DepthStencilState)
+		{
+			return false;
+		}
+
+		FShader* DebugShader = FShaderManager::Get().GetOrCreate(EShaderPath::ShadowDepthDebug);
+		if (!DebugShader || !DebugShader->IsValid())
+		{
+			return false;
+		}
+
+		FDebugPassStateBackup SavedState;
+		SavedState.Capture(DeviceContext);
+
+		ID3D11ShaderResourceView* NullSRV = nullptr;
+		DeviceContext->PSSetShaderResources(0, 1, &NullSRV);
+
+		const float ClearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+		DeviceContext->OMSetRenderTargets(1, &DebugRTV, nullptr);
+		DeviceContext->ClearRenderTargetView(DebugRTV, ClearColor);
+		DeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffffu);
+		DeviceContext->OMSetDepthStencilState(DepthStencilState, 0);
+		DeviceContext->RSSetState(RasterizerState);
+		DebugShader->Bind(DeviceContext);
+		DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		ID3D11Buffer* ConstantBufferHandle = DebugConstantBuffer.GetBuffer();
+		DeviceContext->VSSetConstantBuffers(ECBSlot::PerShader0, 1, &ConstantBufferHandle);
+		DeviceContext->PSSetConstantBuffers(ECBSlot::PerShader0, 1, &ConstantBufferHandle);
+		DeviceContext->PSSetSamplers(0, 1, &PointClampSampler);
+		DeviceContext->PSSetShaderResources(0, 1, &AtlasSRV);
+
+		for (const FDebugRegionDraw& Draw : Draws)
+		{
+			FDebugShadowConstants Constants = {};
+			Constants.SrcUVRect[0] = Draw.UV.u1;
+			Constants.SrcUVRect[1] = Draw.UV.v1;
+			Constants.SrcUVRect[2] = Draw.UV.u2;
+			Constants.SrcUVRect[3] = Draw.UV.v2;
+			Constants.SrcSlice = Draw.SliceIndex;
+
+			DebugConstantBuffer.Update(DeviceContext, &Constants, sizeof(Constants));
+			DeviceContext->RSSetViewports(1, &Draw.Viewport);
+			DeviceContext->Draw(3, 0);
+		}
+
+		DeviceContext->PSSetShaderResources(0, 1, &NullSRV);
+		SavedState.Restore(DeviceContext);
+		return true;
+	}
+}
+
 void FTextureAtlasPool::Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, uint32 InTextureSize)
 {
 	CurrentFilterMode = EShadowFilterMode::PCF;
 	FTexturePoolBase::Initialize(InDevice, InDeviceContext, InTextureSize);
+	CreateDebugPassResources();
 }
 
 void FTextureAtlasPool::EnsureAtlasMode(EShadowFilterMode InFilterMode)
@@ -30,13 +218,13 @@ void FTextureAtlasPool::RecreateAtlasResources()
 		return;
 	}
 
+	DebugResource.clear();
 	Texture = CreateTexture(Device);
 	RebuildSRV(Device, Texture.Get());
 	RebuildDSV(Device, Texture.Get());
 	BroadCastHandlesUnvalid();
 }
 
-//들어갈 곳이 없으면 자동으로 Resize하는 로직이 추가 되었는데 일단은 그냥 두기
 TexturePoolHandleSet* FTextureAtlasPool::GetTextureHandle(TexturePoolHandleRequest HandleRequest)
 {
 	uint32 ManagerCount = static_cast<uint32>(UVManagers.size());
@@ -70,6 +258,7 @@ TexturePoolHandleSet* FTextureAtlasPool::GetTextureHandle(TexturePoolHandleReque
 
 		HandleSet.get()->Handles.push_back(Handle);
 	}
+
 	HandleSet->bIsValid = true;
 	AllocatedHandleList.push_back(std::move(HandleSet));
 	return AllocatedHandleList.back().get();
@@ -83,7 +272,13 @@ void FTextureAtlasPool::ReleaseHandle(TexturePoolHandle& InHandle)
 TArray<FAtlasUV> FTextureAtlasPool::GetAtlasUVArray(const TexturePoolHandleSet* InHandleSet)
 {
 	TArray<FAtlasUV> Result;
-	for (const auto& Handle : InHandleSet->Handles)
+	if (!InHandleSet)
+	{
+		return Result;
+	}
+
+	Result.reserve(InHandleSet->Handles.size());
+	for (const TexturePoolHandle& Handle : InHandleSet->Handles)
 	{
 		Result.push_back(GetAtlasUV(Handle));
 	}
@@ -94,11 +289,17 @@ TArray<FAtlasUV> FTextureAtlasPool::GetAtlasUVArray(const TexturePoolHandleSet* 
 TArray<ID3D11DepthStencilView*> FTextureAtlasPool::GetDSVs(TexturePoolHandleSet* HandleSet)
 {
 	TArray<ID3D11DepthStencilView*> Result;
-	if (!HandleSet) return Result;
+	if (!HandleSet)
+	{
+		return Result;
+	}
+
+	MarkDebugDirty(HandleSet);
+	MarkSliceDebugDirty(HandleSet);
 
 	TArray<TexturePoolHandle> Handles = HandleSet->Handles;
-
-	for (const auto& Handle : Handles)
+	Result.reserve(Handles.size());
+	for (const TexturePoolHandle& Handle : Handles)
 	{
 		if (Handle.ArrayIndex < static_cast<uint32>(DSVs.size()))
 		{
@@ -116,13 +317,17 @@ TArray<ID3D11DepthStencilView*> FTextureAtlasPool::GetDSVs(TexturePoolHandleSet*
 TArray<ID3D11RenderTargetView*> FTextureAtlasPool::GetRTVs(TexturePoolHandleSet* HandleSet)
 {
 	TArray<ID3D11RenderTargetView*> Result;
-	if (!HandleSet || !IsVSMMode())
+	if (!IsVSMMode() || !HandleSet)
 	{
 		return Result;
 	}
 
+	MarkDebugDirty(HandleSet);
+	MarkSliceDebugDirty(HandleSet);
+
 	TArray<TexturePoolHandle> Handles = HandleSet->Handles;
-	for (const auto& Handle : Handles)
+	Result.reserve(Handles.size());
+	for (const TexturePoolHandle& Handle : Handles)
 	{
 		if (Handle.ArrayIndex < static_cast<uint32>(RTVs.size()))
 		{
@@ -139,7 +344,209 @@ TArray<ID3D11RenderTargetView*> FTextureAtlasPool::GetRTVs(TexturePoolHandleSet*
 
 ID3D11ShaderResourceView* FTextureAtlasPool::GetDebugSRV(const TexturePoolHandle& InHandle)
 {
-	return nullptr;
+	if (!Texture || !SRV || InHandle.ArrayIndex >= TextureLayerSize || !CreateDebugPassResources())
+	{
+		return nullptr;
+	}
+
+	const FAtlasUV UV = GetAtlasUV(InHandle);
+	const uint32 Width = GetPreviewExtent(UV.u1, UV.u2, TextureSize);
+	const uint32 Height = GetPreviewExtent(UV.v1, UV.v2, TextureSize);
+	const uint32 CacheKey = MakeHandleDebugKey(InHandle);
+	const uint64 SourceVersion = SliceDebugVersions[InHandle.ArrayIndex];
+
+	auto& Cached = DebugResource[CacheKey];
+	if (!Cached)
+	{
+		Cached = std::make_unique<SRVResource>();
+	}
+
+	SRVResource& DebugResourceRef = *Cached;
+	if (DebugResourceRef.SRV &&
+		DebugResourceRef.Width == Width &&
+		DebugResourceRef.Height == Height &&
+		DebugResourceRef.Version == SourceVersion &&
+		DebugResourceRef.SourceInternalIndex == InHandle.InternalIndex &&
+		DebugResourceRef.SourceArrayIndex == InHandle.ArrayIndex)
+	{
+		return DebugResourceRef.SRV.Get();
+	}
+
+	if (!CreateDebugResource(DebugResourceRef, Width, Height))
+	{
+		return nullptr;
+	}
+
+	FDebugRegionDraw Draw = {};
+	Draw.UV = UV;
+	Draw.SliceIndex = InHandle.ArrayIndex;
+	Draw.Viewport.TopLeftX = 0.0f;
+	Draw.Viewport.TopLeftY = 0.0f;
+	Draw.Viewport.Width = static_cast<float>(Width);
+	Draw.Viewport.Height = static_cast<float>(Height);
+	Draw.Viewport.MinDepth = 0.0f;
+	Draw.Viewport.MaxDepth = 1.0f;
+
+	TArray<FDebugRegionDraw> Draws = { Draw };
+	if (!RenderShadowDebugPreview(
+		GetDeviceContext(),
+		DebugConstantBuffer,
+		SRV.Get(),
+		DebugResourceRef.RTV.Get(),
+		DebugPointClampSampler.Get(),
+		DebugRasterizerState.Get(),
+		DebugDepthStencilState.Get(),
+		Draws))
+	{
+		return nullptr;
+	}
+
+	DebugResourceRef.Version = SourceVersion;
+	DebugResourceRef.SourceInternalIndex = InHandle.InternalIndex;
+	DebugResourceRef.SourceArrayIndex = InHandle.ArrayIndex;
+	return DebugResourceRef.SRV.Get();
+}
+
+ID3D11ShaderResourceView* FTextureAtlasPool::GetDebugSRV(const TexturePoolHandleSet* InHandleSet)
+{
+	if (!Texture || !SRV || !InHandleSet || !InHandleSet->bIsValid || InHandleSet->Handles.empty() || !CreateDebugPassResources())
+	{
+		return nullptr;
+	}
+
+	TArray<FDebugRegionDraw> Draws;
+	Draws.reserve(InHandleSet->Handles.size());
+
+	uint32 TotalWidth = 0;
+	uint32 MaxHeight = 0;
+	for (const TexturePoolHandle& Handle : InHandleSet->Handles)
+	{
+		if (Handle.ArrayIndex >= TextureLayerSize)
+		{
+			return nullptr;
+		}
+
+		const FAtlasUV UV = GetAtlasUV(Handle);
+		const uint32 PieceWidth = GetPreviewExtent(UV.u1, UV.u2, TextureSize);
+		const uint32 PieceHeight = GetPreviewExtent(UV.v1, UV.v2, TextureSize);
+
+		FDebugRegionDraw Draw = {};
+		Draw.UV = UV;
+		Draw.SliceIndex = Handle.ArrayIndex;
+		Draw.Viewport.TopLeftX = static_cast<float>(TotalWidth);
+		Draw.Viewport.TopLeftY = 0.0f;
+		Draw.Viewport.Width = static_cast<float>(PieceWidth);
+		Draw.Viewport.Height = static_cast<float>(PieceHeight);
+		Draw.Viewport.MinDepth = 0.0f;
+		Draw.Viewport.MaxDepth = 1.0f;
+
+		TotalWidth += PieceWidth;
+		MaxHeight = MaxHeight > PieceHeight ? MaxHeight : PieceHeight;
+		Draws.push_back(Draw);
+	}
+
+	if (TotalWidth == 0 || MaxHeight == 0)
+	{
+		return nullptr;
+	}
+
+	auto& Cached = DebugResource[InHandleSet->InternalIndex];
+	if (!Cached)
+	{
+		Cached = std::make_unique<SRVResource>();
+	}
+
+	SRVResource& DebugResourceRef = *Cached;
+	if (DebugResourceRef.SRV &&
+		DebugResourceRef.Width == TotalWidth &&
+		DebugResourceRef.Height == MaxHeight &&
+		DebugResourceRef.Version == InHandleSet->DebugVersion)
+	{
+		return DebugResourceRef.SRV.Get();
+	}
+
+	if (!CreateDebugResource(DebugResourceRef, TotalWidth, MaxHeight))
+	{
+		return nullptr;
+	}
+
+	if (!RenderShadowDebugPreview(
+		GetDeviceContext(),
+		DebugConstantBuffer,
+		SRV.Get(),
+		DebugResourceRef.RTV.Get(),
+		DebugPointClampSampler.Get(),
+		DebugRasterizerState.Get(),
+		DebugDepthStencilState.Get(),
+		Draws))
+	{
+		return nullptr;
+	}
+
+	DebugResourceRef.Version = InHandleSet->DebugVersion;
+	DebugResourceRef.SourceInternalIndex = InHandleSet->InternalIndex;
+	DebugResourceRef.SourceArrayIndex = static_cast<uint32>(-1);
+	return DebugResourceRef.SRV.Get();
+}
+
+ID3D11ShaderResourceView* FTextureAtlasPool::GetDebugLayerSRV(uint32 SliceIndex)
+{
+	if (!Texture || !SRV || SliceIndex >= TextureLayerSize || !CreateDebugPassResources())
+	{
+		return nullptr;
+	}
+
+	const uint32 CacheKey = LayerDebugKeyPrefix | SliceIndex;
+	const uint64 SourceVersion = SliceDebugVersions[SliceIndex];
+
+	auto& Cached = DebugResource[CacheKey];
+	if (!Cached)
+	{
+		Cached = std::make_unique<SRVResource>();
+	}
+
+	SRVResource& DebugResourceRef = *Cached;
+	if (DebugResourceRef.SRV &&
+		DebugResourceRef.Width == TextureSize &&
+		DebugResourceRef.Height == TextureSize &&
+		DebugResourceRef.Version == SourceVersion)
+	{
+		return DebugResourceRef.SRV.Get();
+	}
+
+	if (!CreateDebugResource(DebugResourceRef, TextureSize, TextureSize))
+	{
+		return nullptr;
+	}
+
+	FDebugRegionDraw Draw = {};
+	Draw.UV = { SliceIndex, 0.0f, 0.0f, 1.0f, 1.0f };
+	Draw.SliceIndex = SliceIndex;
+	Draw.Viewport.TopLeftX = 0.0f;
+	Draw.Viewport.TopLeftY = 0.0f;
+	Draw.Viewport.Width = static_cast<float>(TextureSize);
+	Draw.Viewport.Height = static_cast<float>(TextureSize);
+	Draw.Viewport.MinDepth = 0.0f;
+	Draw.Viewport.MaxDepth = 1.0f;
+
+	TArray<FDebugRegionDraw> Draws = { Draw };
+	if (!RenderShadowDebugPreview(
+		GetDeviceContext(),
+		DebugConstantBuffer,
+		SRV.Get(),
+		DebugResourceRef.RTV.Get(),
+		DebugPointClampSampler.Get(),
+		DebugRasterizerState.Get(),
+		DebugDepthStencilState.Get(),
+		Draws))
+	{
+		return nullptr;
+	}
+
+	DebugResourceRef.Version = SourceVersion;
+	DebugResourceRef.SourceInternalIndex = SliceIndex;
+	DebugResourceRef.SourceArrayIndex = SliceIndex;
+	return DebugResourceRef.SRV.Get();
 }
 
 TComPtr<ID3D11Texture2D> FTextureAtlasPool::CreateTexture(ID3D11Device* Device)
@@ -277,6 +684,7 @@ void FTextureAtlasPool::RebuildRTVs(ID3D11Device* Device, ID3D11Texture2D* InTex
 
 void FTextureAtlasPool::OnSetTextureSize()
 {
+	DebugResource.clear();
 	for (const auto& UVManager : UVManagers)
 	{
 		UVManager.get()->SetSize(TextureSize);
@@ -285,8 +693,9 @@ void FTextureAtlasPool::OnSetTextureSize()
 
 void FTextureAtlasPool::OnSetTextureLayerSize()
 {
-	uint32 CurrentManagersCount = static_cast<uint32>(UVManagers.size());
-	uint32 TargetCount = GetTextureLayerSize();
+	const uint32 CurrentManagersCount = static_cast<uint32>(UVManagers.size());
+	const uint32 TargetCount = GetTextureLayerSize();
+	SliceDebugVersions.resize(TargetCount, 1);
 
 	for (uint32 i = CurrentManagersCount; i < TargetCount; ++i)
 	{
@@ -294,5 +703,186 @@ void FTextureAtlasPool::OnSetTextureLayerSize()
 		NewManager->Initialize(TextureSize, 1024);
 
 		UVManagers.push_back(std::move(NewManager));
+	}
+}
+
+bool FTextureAtlasPool::CreateDebugResource(SRVResource& OutResource, uint32 Width, uint32 Height)
+{
+	if (OutResource.Texture &&
+		OutResource.RTV &&
+		OutResource.SRV &&
+		OutResource.Width == Width &&
+		OutResource.Height == Height)
+	{
+		return true;
+	}
+
+	ID3D11Device* Device = GetDevice();
+	if (!Device || Width == 0 || Height == 0)
+	{
+		return false;
+	}
+
+	OutResource.Texture.Reset();
+	OutResource.RTV.Reset();
+	OutResource.SRV.Reset();
+
+	D3D11_TEXTURE2D_DESC TextureDesc = {};
+	TextureDesc.Width = Width;
+	TextureDesc.Height = Height;
+	TextureDesc.MipLevels = 1;
+	TextureDesc.ArraySize = 1;
+	TextureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	TextureDesc.SampleDesc.Count = 1;
+	TextureDesc.Usage = D3D11_USAGE_DEFAULT;
+	TextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+
+	HRESULT hr = Device->CreateTexture2D(&TextureDesc, nullptr, OutResource.Texture.GetAddressOf());
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	D3D11_RENDER_TARGET_VIEW_DESC RTVDesc = {};
+	RTVDesc.Format = TextureDesc.Format;
+	RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	RTVDesc.Texture2D.MipSlice = 0;
+
+	hr = Device->CreateRenderTargetView(OutResource.Texture.Get(), &RTVDesc, OutResource.RTV.GetAddressOf());
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+	SRVDesc.Format = TextureDesc.Format;
+	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	SRVDesc.Texture2D.MostDetailedMip = 0;
+	SRVDesc.Texture2D.MipLevels = 1;
+
+	hr = Device->CreateShaderResourceView(OutResource.Texture.Get(), &SRVDesc, OutResource.SRV.GetAddressOf());
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	OutResource.Width = Width;
+	OutResource.Height = Height;
+	return true;
+}
+
+bool FTextureAtlasPool::CreateDebugPassResources()
+{
+	ID3D11Device* Device = GetDevice();
+	if (!Device)
+	{
+		return false;
+	}
+
+	if (!DebugConstantBuffer.GetBuffer())
+	{
+		DebugConstantBuffer.Create(Device, sizeof(FDebugShadowConstants));
+	}
+
+	if (!DebugPointClampSampler)
+	{
+		D3D11_SAMPLER_DESC SamplerDesc = {};
+		SamplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+		SamplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+		SamplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+		SamplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+		SamplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+		SamplerDesc.MinLOD = 0.0f;
+		SamplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+		HRESULT hr = Device->CreateSamplerState(&SamplerDesc, DebugPointClampSampler.GetAddressOf());
+		if (FAILED(hr))
+		{
+			return false;
+		}
+	}
+
+	if (!DebugRasterizerState)
+	{
+		D3D11_RASTERIZER_DESC RasterizerDesc = {};
+		RasterizerDesc.FillMode = D3D11_FILL_SOLID;
+		RasterizerDesc.CullMode = D3D11_CULL_NONE;
+		RasterizerDesc.DepthClipEnable = TRUE;
+
+		HRESULT hr = Device->CreateRasterizerState(&RasterizerDesc, DebugRasterizerState.GetAddressOf());
+		if (FAILED(hr))
+		{
+			return false;
+		}
+	}
+
+	if (!DebugDepthStencilState)
+	{
+		D3D11_DEPTH_STENCIL_DESC DepthStencilDesc = {};
+		DepthStencilDesc.DepthEnable = FALSE;
+		DepthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+		DepthStencilDesc.DepthFunc = D3D11_COMPARISON_ALWAYS;
+		DepthStencilDesc.StencilEnable = FALSE;
+
+		HRESULT hr = Device->CreateDepthStencilState(&DepthStencilDesc, DebugDepthStencilState.GetAddressOf());
+		if (FAILED(hr))
+		{
+			return false;
+		}
+	}
+
+	return DebugConstantBuffer.GetBuffer() &&
+		DebugPointClampSampler &&
+		DebugRasterizerState &&
+		DebugDepthStencilState;
+}
+
+void FTextureAtlasPool::MarkSliceDebugDirty(uint32 SliceIndex)
+{
+	if (SliceIndex < SliceDebugVersions.size())
+	{
+		++SliceDebugVersions[SliceIndex];
+	}
+}
+
+void FTextureAtlasPool::MarkSliceDebugDirty(TexturePoolHandleSet* HandleSet)
+{
+	if (!HandleSet)
+	{
+		return;
+	}
+
+	for (const TexturePoolHandle& Handle : HandleSet->Handles)
+	{
+		MarkSliceDebugDirty(Handle.ArrayIndex);
+	}
+}
+
+uint32 FTextureAtlasPool::MakeHandleDebugKey(const TexturePoolHandle& InHandle)
+{
+	const uint64 PackedHandle = (static_cast<uint64>(InHandle.ArrayIndex) << 32) | InHandle.InternalIndex;
+	uint32 Key = HandleDebugKeyPrefix | (static_cast<uint32>(std::hash<uint64>{}(PackedHandle)) & 0x3fffffffu);
+
+	while (true)
+	{
+		auto Found = DebugResource.find(Key);
+		if (Found == DebugResource.end())
+		{
+			return Key;
+		}
+
+		const SRVResource* Resource = Found->second.get();
+		if (Resource &&
+			Resource->SourceInternalIndex == InHandle.InternalIndex &&
+			Resource->SourceArrayIndex == InHandle.ArrayIndex)
+		{
+			return Key;
+		}
+
+		++Key;
+		if (Key >= LayerDebugKeyPrefix)
+		{
+			Key = HandleDebugKeyPrefix;
+		}
 	}
 }

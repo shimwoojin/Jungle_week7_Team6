@@ -35,6 +35,7 @@ void FShaderManager::Initialize(ID3D11Device* InDevice)
 	GetOrCreate(EShaderPath::Decal);
 	GetOrCreate(EShaderPath::ShadowDepth);
 	GetOrCreate(EShaderPath::ShadowClear);
+	GetOrCreate(EShaderPath::ShadowDepthDebug);
 	GetOrCreate(EShaderPath::Outline);
 	GetOrCreate(EShaderPath::SceneDepth);
 	GetOrCreate(EShaderPath::SceneNormal);

@@ -22,10 +22,20 @@ void FTexturePoolBase::ReleaseHandleSet(TexturePoolHandleSet* InHandleSet)
 	}
 
 	uint32 TargetIndex = InHandleSet->InternalIndex;
+	uint32 LastIndex = static_cast<uint32>(AllocatedHandleList.size() - 1);
+	DebugResource.erase(TargetIndex);
+
 	if (TargetIndex + 1 < AllocatedHandleList.size())
 	{
 		AllocatedHandleList[TargetIndex] = std::move(AllocatedHandleList.back());
 		AllocatedHandleList[TargetIndex].get()->InternalIndex = TargetIndex;
+
+		auto MovedDebugResource = DebugResource.find(LastIndex);
+		if (MovedDebugResource != DebugResource.end())
+		{
+			DebugResource[TargetIndex] = std::move(MovedDebugResource->second);
+			DebugResource.erase(MovedDebugResource);
+		}
 	}
 	AllocatedHandleList.pop_back();
 }
@@ -86,10 +96,22 @@ void FTexturePoolBase::ResizeLayer(uint32 InNewLayerSize)
 
 void FTexturePoolBase::BroadCastHandlesUnvalid()
 {
+	DebugResource.clear();
 	for (auto& HandleSet : AllocatedHandleList)
 	{
 		HandleSet.get()->bIsValid = false;
+		++HandleSet.get()->DebugVersion;
 	}
+}
+
+void FTexturePoolBase::MarkDebugDirty(TexturePoolHandleSet* InHandleSet)
+{
+	if (!InHandleSet)
+	{
+		return;
+	}
+
+	++InHandleSet->DebugVersion;
 }
 
 void FTexturePoolBase::SetTextureLayerSize(uint32 InTextureLayerSize)

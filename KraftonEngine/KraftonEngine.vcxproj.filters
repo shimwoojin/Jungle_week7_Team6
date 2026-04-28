@@ -691,6 +691,7 @@
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\TexturePool.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\UVManager\FUVManager.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\TextureCubeShadowPool.cpp" />
+    <ClCompile Include="Source\Editor\UI\EditorShadowPropertyWidget.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Editor\EditorEngine.h">
@@ -1267,6 +1268,7 @@
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\TexturePool.h" />
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\UVManager\FUVManager.h" />
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\TextureCubeShadowPool.h" />
+    <ClInclude Include="Source\Editor\UI\EditorShadowPropertyWidget.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="KraftonEngine.rc" />

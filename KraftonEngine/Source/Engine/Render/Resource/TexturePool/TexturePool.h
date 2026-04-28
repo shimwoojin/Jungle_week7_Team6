@@ -31,6 +31,7 @@ public:
 
 		uint32 InternalIndex;
 		bool bIsValid = false;
+		uint64 DebugVersion = 1;
 		TArray<TexturePoolHandle> Handles;
 
 	private:
@@ -55,11 +56,17 @@ public:
 		TArray<uint32> Sizes;
 	};
 
-private:
+protected:
 	struct SRVResource
 	{
 		TComPtr<ID3D11Texture2D> Texture;
+		TComPtr<ID3D11RenderTargetView> RTV;
 		TComPtr<ID3D11ShaderResourceView> SRV;
+		uint32 Width = 0;
+		uint32 Height = 0;
+		uint64 Version = 0;
+		uint32 SourceInternalIndex = static_cast<uint32>(-1);
+		uint32 SourceArrayIndex = static_cast<uint32>(-1);
 	};
 #pragma endregion
 
@@ -72,11 +79,13 @@ public:
 	virtual void ReleaseHandle(TexturePoolHandle& InHandle) = 0;
 	virtual void ReleaseHandleSet(TexturePoolHandleSet* InHandleSet);
 	virtual ID3D11ShaderResourceView* GetDebugSRV(const TexturePoolHandle& InHandle) = 0;
+	virtual ID3D11ShaderResourceView* GetDebugSRV(const TexturePoolHandleSet* InHandleSet) = 0;
 
 protected:
 	virtual TComPtr<ID3D11Texture2D> CreateTexture(ID3D11Device* Device) = 0;
 	virtual void RebuildSRV(ID3D11Device* Device, ID3D11Texture2D* InTexture) = 0;
 	virtual void RebuildDSV(ID3D11Device* Device, ID3D11Texture2D* InTexture);
+	void MarkDebugDirty(TexturePoolHandleSet* InHandleSet);
 
 	void ResizeLayer() { ResizeLayer(TextureLayerSize * 2); }
 	void ResizeLayer(uint32 InNewLayerSize);
