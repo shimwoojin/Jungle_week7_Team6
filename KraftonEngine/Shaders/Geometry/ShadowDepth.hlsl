@@ -3,6 +3,9 @@
 cbuffer ShadowPassBuffer : register(b2)
 {
     row_major float4x4 LightVP;
+    row_major float4x4 CameraVP;
+    uint bIsPSM;
+    uint3 _pad;
 };
 
 struct VSInput
@@ -19,7 +22,17 @@ VSOutput VS(VSInput input)
 {
     VSOutput output;
     float4 worldPos = mul(float4(input.Position, 1.0f), Model);
-    output.Position = mul(worldPos, LightVP);
+    if (bIsPSM != 0)
+    {
+        float4 cameraNDC = mul(worldPos, CameraVP);
+        cameraNDC.xyz /= cameraNDC.w;
+        cameraNDC.w = 1.0f;
+        output.Position = mul(cameraNDC, LightVP);
+    }
+    else
+    {
+        output.Position = mul(worldPos, LightVP);
+    }
     return output;
 }
 

@@ -69,6 +69,7 @@ private:
 		uint32 CubeFaceIndex = 0;
 		FMatrix CameraVP = FMatrix::Identity;
 		bool bIsPSM = false;
+		bool bCullWithShadowFrustum = true;
 	};
 
 	//ShadowMap 렌더링에 필요한 정보 담는 녀석들을 담는 녀석

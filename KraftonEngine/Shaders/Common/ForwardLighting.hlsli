@@ -90,7 +90,20 @@ float ReduceLightBleed(float probability)
 
 float SampleAtlasShadowVSM(FShadowInfo info, float3 worldPos)
 {
-    float4 lightClip = mul(float4(worldPos, 1.0f), info.LightVP);
+    float4 lightClip;
+    if (info.bIsPSM)
+    {
+        float4 viewPos = mul(float4(worldPos, 1.0f), View);
+        float4 cameraNDC = mul(viewPos, Projection);
+        cameraNDC.xyz /= cameraNDC.w;
+        cameraNDC.w = 1.0f;
+        lightClip = mul(cameraNDC, info.LightVP);
+    }
+    else
+    {
+        lightClip = mul(float4(worldPos, 1.0f), info.LightVP);
+    }
+
     if (abs(lightClip.w) < 1e-5f)
     {
         return 1.0f;
