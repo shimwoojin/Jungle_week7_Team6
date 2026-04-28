@@ -12,9 +12,16 @@ void FEditorShadowPropertyWidget::ShowShadowProperty(ULightComponent* LightCompo
 		return;
 	}
 
+	ShowShadowParameter();
 	ShowShadowMapPropertWindow();
 	ImGui::End();
 }
+
+void FEditorShadowPropertyWidget::ShowShadowParameter()
+{
+
+}
+
 
 void FEditorShadowPropertyWidget::ShowShadowMapPropertWindow()
 {
