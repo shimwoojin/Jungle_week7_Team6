@@ -68,6 +68,8 @@ private:
 		uint32 CubeIndex = static_cast<uint32>(-1);
 		uint32 CubeFaceIndex = 0;
 		FMatrix CameraVP = FMatrix::Identity;
+		float ShadowDepthBias = 0.0f;
+		float ShadowSlopeBias = 0.0f;
 		bool bIsPSM = false;
 		bool bCullWithShadowFrustum = true;
 	};
