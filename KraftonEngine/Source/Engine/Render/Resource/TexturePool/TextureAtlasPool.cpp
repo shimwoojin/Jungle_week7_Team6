@@ -392,77 +392,6 @@ TArray<ID3D11RenderTargetView*> FTextureAtlasPool::GetTempRTVs(TexturePoolHandle
 	return Result;
 }
 
-bool FTextureAtlasPool::HasVSMBlurResources() const
-{
-	return IsVSMMode()
-		&& VSMFilteredTexture
-		&& VSMTempTexture
-		&& VSMFilteredSRV
-		&& VSMTempSRV
-		&& VSMFilteredRTVs.size() == TextureLayerSize
-		&& VSMTempRTVs.size() == TextureLayerSize;
-}
-
-void FTextureAtlasPool::ExecuteVSMBlurPass(const TArray<FVSMBlurRegion>& Regions)
-{
-	if (!HasVSMBlurResources() || Regions.empty())
-	{
-		return;
-	}
-
-	ID3D11DeviceContext* Context = GetDeviceContext();
-	if (!Context)
-	{
-		return;
-	}
-
-	Context->OMSetRenderTargets(0, nullptr, nullptr);
-
-	for (const FVSMBlurRegion& Region : Regions)
-	{
-		if (Region.SliceIndex >= TextureLayerSize)
-		{
-			continue;
-		}
-
-		D3D11_BOX CopyBox = Region.Box;
-		CopyBox.left = CopyBox.left < TextureSize ? CopyBox.left : TextureSize;
-		CopyBox.top = CopyBox.top < TextureSize ? CopyBox.top : TextureSize;
-		CopyBox.right = CopyBox.right < TextureSize ? CopyBox.right : TextureSize;
-		CopyBox.bottom = CopyBox.bottom < TextureSize ? CopyBox.bottom : TextureSize;
-		CopyBox.front = 0;
-		CopyBox.back = 1;
-		if (CopyBox.right <= CopyBox.left || CopyBox.bottom <= CopyBox.top)
-		{
-			continue;
-		}
-
-		const UINT Subresource = D3D11CalcSubresource(0, Region.SliceIndex, 1);
-
-		// No blur shader exists yet. Keep the pass structure and hazard-safe resource flow
-		// by staging raw -> temp -> filtered through copy operations on the atlas sub-rect.
-		Context->CopySubresourceRegion(
-			VSMTempTexture.Get(),
-			Subresource,
-			CopyBox.left,
-			CopyBox.top,
-			0,
-			Texture.Get(),
-			Subresource,
-			&CopyBox);
-
-		Context->CopySubresourceRegion(
-			VSMFilteredTexture.Get(),
-			Subresource,
-			CopyBox.left,
-			CopyBox.top,
-			0,
-			VSMTempTexture.Get(),
-			Subresource,
-			&CopyBox);
-	}
-}
-
 ID3D11ShaderResourceView* FTextureAtlasPool::GetDebugSRV(const TexturePoolHandle& InHandle)
 {
 	if (!Texture || !SRV || InHandle.ArrayIndex >= TextureLayerSize || !CreateDebugPassResources())
@@ -785,6 +714,8 @@ void FTextureAtlasPool::RebuildVSMMomentRTVs(
 
 void FTextureAtlasPool::RebuildVSMBlurResources(ID3D11Device* Device)
 {
+	// Blur shader를 연결할 때 사용하는 보조 리소스들이다.
+	// 계약은 Raw(Texture/SRV) -> Temp(RTV/SRV) -> Filtered(RTV/SRV) 순서다.
 	VSMFilteredTexture = CreateVSMMomentTexture(Device);
 	VSMTempTexture = CreateVSMMomentTexture(Device);
 

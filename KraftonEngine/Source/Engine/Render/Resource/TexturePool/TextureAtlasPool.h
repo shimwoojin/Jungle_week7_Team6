@@ -29,12 +29,6 @@ protected:
 #pragma endregion
 
 public:
-	struct FVSMBlurRegion
-	{
-		uint32 SliceIndex = static_cast<uint32>(-1);
-		D3D11_BOX Box = {};
-	};
-
 	void Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, uint32 InTextureSize) override;
 	void EnsureAtlasMode(EShadowFilterMode InFilterMode);
 
@@ -48,12 +42,13 @@ public:
 	ID3D11ShaderResourceView* GetRawSRV() { return SRV.Get(); }
 	ID3D11ShaderResourceView* GetFilteredSRV() { return VSMFilteredSRV.Get(); }
 	ID3D11ShaderResourceView* GetTempSRV() { return VSMTempSRV.Get(); }
+	ID3D11Texture2D* GetRawTexture() { return Texture.Get(); }
+	ID3D11Texture2D* GetFilteredTexture() { return VSMFilteredTexture.Get(); }
+	ID3D11Texture2D* GetTempTexture() { return VSMTempTexture.Get(); }
 	TArray<ID3D11DepthStencilView*> GetDSVs(TexturePoolHandleSet* HandleSet);
 	TArray<ID3D11RenderTargetView*> GetRTVs(TexturePoolHandleSet* HandleSet);
 	TArray<ID3D11RenderTargetView*> GetFilteredRTVs(TexturePoolHandleSet* HandleSet);
 	TArray<ID3D11RenderTargetView*> GetTempRTVs(TexturePoolHandleSet* HandleSet);
-	bool HasVSMBlurResources() const;
-	void ExecuteVSMBlurPass(const TArray<FVSMBlurRegion>& Regions);
 
 	ID3D11ShaderResourceView* GetDebugSRV(const TexturePoolHandle& InHandle) override;
 	ID3D11ShaderResourceView* GetDebugSRV(const TexturePoolHandleSet* InHandleSet) override;

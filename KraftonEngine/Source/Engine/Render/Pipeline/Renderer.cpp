@@ -787,15 +787,20 @@ void FRenderer::RenderShadowPass(const FFrameContext& Frame, const FScene& Scene
 void FRenderer::RenderVSMBlurPass(const FShadowPassData& ShadowPassData)
 {
 	FTextureAtlasPool& AtlasPool = FTextureAtlasPool::Get();
-	if (!AtlasPool.HasVSMBlurResources())
+	ID3D11DeviceContext* Ctx = Device.GetDeviceContext();
+	ID3D11Texture2D* RawTexture = AtlasPool.GetRawTexture();
+	ID3D11Texture2D* TempTexture = AtlasPool.GetTempTexture();
+	ID3D11Texture2D* FilteredTexture = AtlasPool.GetFilteredTexture();
+	if (!Ctx || !RawTexture || !TempTexture || !FilteredTexture)
 	{
 		return;
 	}
 
-	TArray<FTextureAtlasPool::FVSMBlurRegion> BlurRegions;
+	TArray<FVSMBlurRegion> BlurRegions;
 	BlurRegions.reserve(ShadowPassData.RenderTasks.size());
 
 	const uint32 AtlasTextureSize = AtlasPool.GetTextureSize();
+	const uint32 AtlasLayerCount = AtlasPool.GetAllocatedLayerCount();
 	for (const FShadowRenderTask& Task : ShadowPassData.RenderTasks)
 	{
 		if (Task.TargetType != EShadowRenderTargetType::Atlas2D
@@ -806,7 +811,7 @@ void FRenderer::RenderVSMBlurPass(const FShadowPassData& ShadowPassData)
 		}
 
 		bool bValidRegion = false;
-		FTextureAtlasPool::FVSMBlurRegion Region = {};
+		FVSMBlurRegion Region = {};
 		Region.SliceIndex = Task.AtlasSliceIndex;
 		Region.Box = MakeViewportCopyBox(Task.Viewport, AtlasTextureSize, bValidRegion);
 		if (bValidRegion)
@@ -820,7 +825,57 @@ void FRenderer::RenderVSMBlurPass(const FShadowPassData& ShadowPassData)
 		return;
 	}
 
-	AtlasPool.ExecuteVSMBlurPass(BlurRegions);
+	Ctx->OMSetRenderTargets(0, nullptr, nullptr);
+
+	for (const FVSMBlurRegion& Region : BlurRegions)
+	{
+		if (Region.SliceIndex >= AtlasLayerCount)
+		{
+			continue;
+		}
+
+		D3D11_BOX CopyBox = Region.Box;
+		CopyBox.left = CopyBox.left < AtlasTextureSize ? CopyBox.left : AtlasTextureSize;
+		CopyBox.top = CopyBox.top < AtlasTextureSize ? CopyBox.top : AtlasTextureSize;
+		CopyBox.right = CopyBox.right < AtlasTextureSize ? CopyBox.right : AtlasTextureSize;
+		CopyBox.bottom = CopyBox.bottom < AtlasTextureSize ? CopyBox.bottom : AtlasTextureSize;
+		CopyBox.front = 0;
+		CopyBox.back = 1;
+		if (CopyBox.right <= CopyBox.left || CopyBox.bottom <= CopyBox.top)
+		{
+			continue;
+		}
+
+		const UINT Subresource = D3D11CalcSubresource(0, Region.SliceIndex, 1);
+
+		// Blur shader 적용 지점:
+		// 1) Horizontal blur draw: RawSRV(Texture/SRV)를 입력으로 읽고 TempRTV를 출력으로 쓴다.
+		// 2) Vertical blur draw: TempSRV를 입력으로 읽고 FilteredRTV를 출력으로 쓴다.
+		// 3) 두 draw 모두 Region.Box에 맞춘 viewport/scissor를 사용한다.
+		// 4) pass 사이에는 input SRV를 명시적으로 unbind해서 SRV/RTV same-resource hazard를 막는다.
+		//
+		// 지금은 셰이더를 건드리지 않는 조건이라 renderer가 copy로 skeleton만 유지한다.
+		// 실제 blur shader가 준비되면 아래 copy 둘을 H/V blur draw 둘로 교체하면 된다.
+		Ctx->CopySubresourceRegion(
+			TempTexture,
+			Subresource,
+			CopyBox.left,
+			CopyBox.top,
+			0,
+			RawTexture,
+			Subresource,
+			&CopyBox);
+
+		Ctx->CopySubresourceRegion(
+			FilteredTexture,
+			Subresource,
+			CopyBox.left,
+			CopyBox.top,
+			0,
+			TempTexture,
+			Subresource,
+			&CopyBox);
+	}
 }
 
 // ============================================================
