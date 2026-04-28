@@ -88,7 +88,7 @@ FShadowHandleSet* USpotLightComponent::GetShadowHandleSet()
 		{
 			ShadowHandleSet->Release();
 		}
-		ShadowHandleSet = FTextureAtlasPool::Get().GetTextureHandle(1024);
+		ShadowHandleSet = FTextureAtlasPool::Get().GetTextureHandle(GetShadowResolution());
 	}
 	return ShadowHandleSet;
 }

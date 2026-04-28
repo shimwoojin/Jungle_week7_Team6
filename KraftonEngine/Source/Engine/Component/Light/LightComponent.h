@@ -24,10 +24,15 @@ public:
 	~ULightComponent() { if(ShadowHandleSet) ShadowHandleSet->Release(); }
 
 	float GetShadowResolutionScale() const { return ShadowResolutionScale; }
-	void SetShadowResolutionScale(float InShadowResolutionScale) { ShadowResolutionScale = InShadowResolutionScale; }
+	void SetShadowResolutionScale(float InShadowResolutionScale);
+	uint32 GetShadowResolution() const;
 	float GetShadowBias() const { return ShadowBias; }
+	void SetShadowBias(float InShadowBias) { ShadowBias = InShadowBias; }
 	float GetShadowSlopeBias() const { return ShadowSlopeBias; }
+	void SetShadowSlopeBias(float InShadowSlopeBias) { ShadowSlopeBias = InShadowSlopeBias; }
 	float GetShadowSharpen() const { return ShadowSharpen; }
+	void SetShadowSharpen(float InShadowSharpen) { ShadowSharpen = InShadowSharpen; }
+	void InvalidateShadowHandleSet();
 
 	virtual void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
 	virtual void Serialize(FArchive& Ar) override;

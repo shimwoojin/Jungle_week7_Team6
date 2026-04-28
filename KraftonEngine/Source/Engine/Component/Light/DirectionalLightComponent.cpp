@@ -99,7 +99,9 @@ FShadowHandleSet* UDirectionalLightComponent::GetShadowHandleSet()
 		{
 			ShadowHandleSet->Release();
 		}
-		ShadowHandleSet = FTextureAtlasPool::Get().GetTextureHandle({ 2048, 1024, 512, 256 });
+		const uint32 BaseResolution = GetShadowResolution();
+		ShadowHandleSet = FTextureAtlasPool::Get().GetTextureHandle(
+			{ BaseResolution, BaseResolution / 2u, BaseResolution / 4u, BaseResolution / 8u });
 	}
 	return ShadowHandleSet;
 }
