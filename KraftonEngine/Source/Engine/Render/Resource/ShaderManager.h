@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Core/Singleton.h"
 #include "Render/Resource/Shader.h"
@@ -68,7 +68,7 @@ namespace EShaderPath
 	inline constexpr const char* Decal = "Shaders/Geometry/Decal.hlsl";
 	inline constexpr const char* ShadowDepth = "Shaders/Geometry/ShadowDepth.hlsl";
 	inline constexpr const char* ShadowClear = "Shaders/Geometry/ShadowClear.hlsl";
-	inline constexpr const char* ShadowDepthDebug = "Shaders/Debug/ShadowDepthDebug.hlsl";
+	inline constexpr const char* ShadowDepthDebug = "Shaders/Editor/ShadowDepthDebug.hlsl";
 
 	inline constexpr const char* Editor = "Shaders/Editor/Editor.hlsl";
 	inline constexpr const char* Gizmo = "Shaders/Editor/Gizmo.hlsl";
