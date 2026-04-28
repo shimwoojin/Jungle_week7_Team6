@@ -4,27 +4,6 @@
 
 IMPLEMENT_ABSTRACT_CLASS(ULightComponent, ULightComponentBase)
 
-namespace
-{
-	uint32 ResolveShadowResolutionFromScale(float ResolutionScale)
-	{
-		const float SafeScale = ResolutionScale > 0.0f ? ResolutionScale : 0.0f;
-		if (SafeScale <= 0.25f)
-		{
-			return 256;
-		}
-		if (SafeScale <= 0.5f)
-		{
-			return 512;
-		}
-		if (SafeScale <= 1.0f)
-		{
-			return 1024;
-		}
-		return 2048;
-	}
-}
-
 void ULightComponent::SetShadowResolutionScale(float InShadowResolutionScale)
 {
 	if (ShadowResolutionScale == InShadowResolutionScale)
@@ -38,7 +17,20 @@ void ULightComponent::SetShadowResolutionScale(float InShadowResolutionScale)
 
 uint32 ULightComponent::GetShadowResolution() const
 {
-	return ResolveShadowResolutionFromScale(ShadowResolutionScale);
+	const float SafeScale = ShadowResolutionScale > 0.0f ? ShadowResolutionScale : 0.0f;
+	if (SafeScale <= 0.25f)
+	{
+		return 256;
+	}
+	if (SafeScale <= 0.5f)
+	{
+		return 512;
+	}
+	if (SafeScale <= 1.0f)
+	{
+		return 1024;
+	}
+	return 2048;
 }
 
 void ULightComponent::InvalidateShadowHandleSet()
