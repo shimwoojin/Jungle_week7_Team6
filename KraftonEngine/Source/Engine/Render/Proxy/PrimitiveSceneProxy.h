@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Core/CoreTypes.h"
 #include "Render/Proxy/DirtyFlag.h"
@@ -57,6 +57,8 @@ public:
 	// --- 가시성 / 선택 ---
 	bool IsVisible()  const { return bVisible; }
 	bool IsSelected() const { return bSelected; }
+	
+	bool CastsShadow() const { return bCastShadow; }
 
 	// --- 렌더 데이터 (DrawCommandBuilder가 읽음) ---
 	ERenderPass        GetRenderPass()  const;
@@ -87,6 +89,7 @@ public:
 	virtual void UpdateMesh();
 	virtual void UpdateLOD(uint32 /*LODLevel*/) {}
 	virtual void UpdatePerViewport(const FFrameContext& /*Frame*/) {}
+	virtual void UpdateShadowFlags();
 
 protected:
 	// ================================================================
@@ -115,6 +118,7 @@ protected:
 
 	// 가시성 (서브클래스 UpdateVisibility/UpdatePerViewport에서 변경)
 	bool bVisible = true;
+	bool bCastShadow = true;
 
 	// LOD (서브클래스 UpdateLOD에서 변경)
 	uint32 CurrentLOD = 0;

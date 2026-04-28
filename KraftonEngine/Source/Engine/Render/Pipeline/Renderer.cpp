@@ -109,6 +109,7 @@ namespace
 	{
 		return Proxy
 			&& Proxy->IsVisible()
+			&& Proxy->CastsShadow()
 			&& Proxy->GetRenderPass() == ERenderPass::Opaque
 			&& Proxy->GetMeshBuffer()
 			&& Proxy->GetMeshBuffer()->IsValid();

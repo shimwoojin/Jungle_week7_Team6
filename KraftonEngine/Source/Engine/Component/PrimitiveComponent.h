@@ -78,6 +78,12 @@ public:
 		bInOctreeOverflow = false;
 	}
 
+	// shadow 관련
+	void SetCastShadow(bool bNewCastShadow);
+	bool IsCastShadow() const { return bCastShadow; }
+
+	void MarkRenderShadowDirty();
+
 protected:
 	void OnTransformDirty() override;
 	void EnsureWorldAABBUpdated() const;
@@ -88,6 +94,7 @@ protected:
 	mutable bool bWorldAABBDirty = true;
 	mutable bool bHasValidWorldAABB = false;
 	bool bIsVisible = true;
+	bool bCastShadow = true; // 이 오브젝트가 다른 물체 위에 그림자를 드리우는가
 	FPrimitiveSceneProxy* SceneProxy = nullptr;
 	
 	FOctree* OctreeNode = nullptr;
