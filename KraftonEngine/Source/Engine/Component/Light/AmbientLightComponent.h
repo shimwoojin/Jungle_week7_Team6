@@ -9,4 +9,5 @@ public:
 
 	virtual void PushToScene() override;
 	virtual void DestroyFromScene() override;
+	virtual void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
 };

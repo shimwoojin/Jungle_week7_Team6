@@ -3,120 +3,25 @@
 
 #include "Common/ForwardLightData.hlsli"
 #include "Common/ConstantBuffers.hlsli"
+#include "Common/SystemSamplers.hlsli"
+#include "Common/ShadowFunctions.hlsli"
 
-//bias만 하드코딩으로 들어가는중
-static const float g_ShadowDepthBias = 0.00005f;
+// =========================================================================
+// Forward Light 계산 헬퍼 함수
+// Shadow 관련 함수는 ShadowFunctions.hlsl에 다 모여있음.
+// =========================================================================
 
+// 감쇠 계산
 float CalcAttenuation(float dist, float radius, float falloff)
 {
     float ratio = saturate(dist / max(radius, 0.0001f));
     return pow(1.0f - ratio, falloff);
 }
 
+// Ambinet Light 빛 세기 계산
 float3 CalcAmbient(float3 lightColor, float intensity)
 {
     return lightColor * intensity;
-}
-
-float SampleAtlasShadow(FShadowInfo info, float3 worldPos)
-{
-    float4 lightClip = mul(float4(worldPos, 1.0f), info.LightVP);
-    if (abs(lightClip.w) < 1e-5f)
-    {
-        return 1.0f;
-    }
-
-    float3 ndc = lightClip.xyz / lightClip.w;
-    float2 uv = ndc.xy * float2(0.5f, -0.5f) + 0.5f;
-    float depth = ndc.z - g_ShadowDepthBias;
-
-    if (any(uv < 0.0f) || any(uv > 1.0f) || depth < 0.0f || depth > 1.0f)
-    {
-        return 1.0f;
-    }
-
-    float2 atlasMin = info.SampleData.xy;
-    float2 atlasMax = info.SampleData.zw;
-    float2 atlasUV = lerp(atlasMin, atlasMax, uv);
-
-    return gShadowAtlasArray.SampleCmpLevelZero(
-        ShadowCmpSampler,
-        float3(atlasUV, info.ArrayIndex),
-        depth);
-}
-
-float SampleCubeShadow(FShadowInfo info, float3 worldPos)
-{
-    float3 lightPos = info.SampleData.xyz;
-    float range = max(info.SampleData.w, 0.0001f);
-
-    float3 toPixel = worldPos - lightPos;
-    float dist = length(toPixel);
-    float3 dir = toPixel / max(dist, 0.0001f);
-    float depth = saturate(dist / range) - g_ShadowDepthBias;
-
-    return gShadowCubeArray.SampleCmpLevelZero(
-        ShadowCmpSampler,
-        float4(dir, info.ArrayIndex),
-        depth);
-}
-
-float SampleShadowInfo(FShadowInfo info, float3 worldPos)
-{
-    float shadow = 1.0f;
-
-#if defined(SHADOW_ENABLE_PCF) && SHADOW_ENABLE_PCF
-    if (info.Type == 0)
-    {
-        shadow = SampleAtlasShadow(info, worldPos);
-    }
-    else
-    {
-        shadow = SampleCubeShadow(info, worldPos);
-    }
-#elif defined(SHADOW_ENABLE_VSM) && SHADOW_ENABLE_VSM
-    shadow = 1.0f;
-#elif defined(SHADOW_ENABLE_EVSM) && SHADOW_ENABLE_EVSM
-    shadow = 1.0f;
-#elif defined(SHADOW_ENABLE_CSM) && SHADOW_ENABLE_CSM
-    if (info.Type == 0)
-    {
-        shadow = SampleAtlasShadow(info, worldPos);
-    }
-    else
-    {
-        shadow = SampleCubeShadow(info, worldPos);
-    }
-#else
-    if (info.Type == 0)
-    {
-        shadow = SampleAtlasShadow(info, worldPos);
-    }
-    else
-    {
-        shadow = SampleCubeShadow(info, worldPos);
-    }
-#endif
-
-    return shadow;
-}
-
-float GetDirectionalShadow(float3 worldPos)
-{
-    if (DirectionalLight.ShadowIndex < 0)
-    {
-        return 1.0f;
-    }
-    return SampleShadowInfo(gShadowInfos[DirectionalLight.ShadowIndex], worldPos);
-}
-
-float GetLightShadow(FLightInfo light, float3 worldPos)
-{
-    if (light.ShadowIndex < 0)
-    {
-        return 1.0f;
-    }
-    return SampleShadowInfo(gShadowInfos[light.ShadowIndex], worldPos);
 }
 
 float3 CalcDirectionalDiffuse(float3 lightColor, float3 lightDir, float intensity, float3 N)
@@ -208,7 +113,7 @@ void AccumulatePointSpotDiffuse(float3 worldPos, float3 N, float4 screenPos, ino
         for (uint t = 0; t < gridData.y; ++t)
         {
             FLightInfo light = AllLights[TileLightIndices[gridData.x + t]];
-            result += CalcLightDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos);
+            result += CalcLightDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos, N);
         }
     }
     else if (LightCullingMode == LIGHT_CULLING_CLUSTER)
@@ -218,7 +123,7 @@ void AccumulatePointSpotDiffuse(float3 worldPos, float3 N, float4 screenPos, ino
         for (uint t = 0; t < gridData.y; ++t)
         {
             FLightInfo light = AllLights[g_ClusterLightIndices[gridData.x + t]];
-            result += CalcLightDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos);
+            result += CalcLightDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos, N);
         }
     }
     else
@@ -226,7 +131,7 @@ void AccumulatePointSpotDiffuse(float3 worldPos, float3 N, float4 screenPos, ino
         for (uint i = 0; i < NumActivePointLights + NumActiveSpotLights; ++i)
         {
             FLightInfo light = AllLights[i];
-            result += CalcLightDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos);
+            result += CalcLightDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos, N);
         }
     }
 }
@@ -238,10 +143,10 @@ void AccumulatePointSpotSpecular(float3 worldPos, float3 N, float3 V, float shin
         uint2 tileCoord = min(uint2(screenPos.xy) / TILE_SIZE, uint2(NumTilesX - 1, NumTilesY - 1));
         uint tileIdx = tileCoord.y * NumTilesX + tileCoord.x;
         uint2 gridData = TileLightGrid[tileIdx];
-        for (uint t = 0; t < gridData.y; ++t)
+        for (uint t = 0; t < gridData.y; ++t)  
         {
             FLightInfo light = AllLights[TileLightIndices[gridData.x + t]];
-            result += CalcLightSpecular(light, worldPos, N, V, shininess) * GetLightShadow(light, worldPos);
+            result += CalcLightSpecular(light, worldPos, N, V, shininess) * GetLightShadow(light, worldPos, N);
         }
     }
     else if (LightCullingMode == LIGHT_CULLING_CLUSTER)
@@ -251,7 +156,7 @@ void AccumulatePointSpotSpecular(float3 worldPos, float3 N, float3 V, float shin
         for (uint t = 0; t < gridData.y; ++t)
         {
             FLightInfo light = AllLights[g_ClusterLightIndices[gridData.x + t]];
-            result += CalcLightSpecular(light, worldPos, N, V, shininess) * GetLightShadow(light, worldPos);
+            result += CalcLightSpecular(light, worldPos, N, V, shininess) * GetLightShadow(light, worldPos, N);
         }
     }
     else
@@ -259,7 +164,7 @@ void AccumulatePointSpotSpecular(float3 worldPos, float3 N, float3 V, float shin
         for (uint i = 0; i < NumActivePointLights + NumActiveSpotLights; ++i)
         {
             FLightInfo light = AllLights[i];
-            result += CalcLightSpecular(light, worldPos, N, V, shininess) * GetLightShadow(light, worldPos);
+            result += CalcLightSpecular(light, worldPos, N, V, shininess) * GetLightShadow(light, worldPos, N);
         }
     }
 }
@@ -279,20 +184,26 @@ float ToonStep(float NdotL)
     return lerp(g_ToonDarknessFloor, 1.0f, saturate(stepped));
 }
 
-float3 CalcToonDirectionalDiffuse(float3 N)
+float CalcRimMask(float3 N, float3 V)
 {
-    float band = ToonStep(saturate(dot(N, -DirectionalLight.Direction)));
-    return DirectionalLight.Color.rgb * DirectionalLight.Intensity * band;
+    float rimDot = 1.0f - saturate(dot(N, V));
+    return smoothstep(g_ToonRimMin, g_ToonRimMax, rimDot);
 }
 
-float3 CalcToonPointSpotDiffuse(FLightInfo light, float3 worldPos, float3 N)
+float3 CalcDirectionalToonDiffuse(float3 lightColor, float3 lightDir, float intensity, float3 N)
+{
+    float NdotL = dot(N, -lightDir);
+    return lightColor * intensity * ToonStep(NdotL);
+}
+
+float3 CalcLightToonDiffuse(FLightInfo light, float3 worldPos, float3 N)
 {
     float3 L = light.Position - worldPos;
     float dist = length(L);
     L = normalize(L);
 
     float atten = CalcAttenuation(dist, light.AttenuationRadius, light.FalloffExponent);
-    float band = ToonStep(saturate(dot(N, L)));
+    float NdotL = dot(N, L);
 
     float spotFactor = 1.0f;
     if (light.LightType == LIGHT_TYPE_SPOT)
@@ -301,10 +212,10 @@ float3 CalcToonPointSpotDiffuse(FLightInfo light, float3 worldPos, float3 N)
         spotFactor = smoothstep(light.OuterConeCos, light.InnerConeCos, cosAngle);
     }
 
-    return light.Color.rgb * light.Intensity * atten * spotFactor * band;
+    return light.Color.rgb * light.Intensity * ToonStep(NdotL) * atten * spotFactor;
 }
 
-void AccumulateToonPointSpotDiffuse(float3 worldPos, float3 N, float4 screenPos, inout float3 result)
+void AccumulatePointSpotToonDiffuse(float3 worldPos, float3 N, float4 screenPos, inout float3 result)
 {
     if (LightCullingMode == LIGHT_CULLING_TILE && NumTilesX > 0 && NumTilesY > 0)
     {
@@ -314,7 +225,7 @@ void AccumulateToonPointSpotDiffuse(float3 worldPos, float3 N, float4 screenPos,
         for (uint t = 0; t < gridData.y; ++t)
         {
             FLightInfo light = AllLights[TileLightIndices[gridData.x + t]];
-            result += CalcToonPointSpotDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos);
+            result += CalcLightToonDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos, N);
         }
     }
     else if (LightCullingMode == LIGHT_CULLING_CLUSTER)
@@ -324,7 +235,7 @@ void AccumulateToonPointSpotDiffuse(float3 worldPos, float3 N, float4 screenPos,
         for (uint t = 0; t < gridData.y; ++t)
         {
             FLightInfo light = AllLights[g_ClusterLightIndices[gridData.x + t]];
-            result += CalcToonPointSpotDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos);
+            result += CalcLightToonDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos, N);
         }
     }
     else
@@ -332,24 +243,19 @@ void AccumulateToonPointSpotDiffuse(float3 worldPos, float3 N, float4 screenPos,
         for (uint i = 0; i < NumActivePointLights + NumActiveSpotLights; ++i)
         {
             FLightInfo light = AllLights[i];
-            result += CalcToonPointSpotDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos);
+            result += CalcLightToonDiffuse(light, worldPos, N) * GetLightShadow(light, worldPos, N);
         }
     }
 }
 
 float3 AccumulateToonDiffuse(float3 worldPos, float3 N, float4 screenPos)
 {
-    float3 result = CalcAmbient(AmbientLight.Color.rgb, AmbientLight.Intensity) * 0.15f;
-    float band = ToonStep(saturate(dot(N, -DirectionalLight.Direction)));
-    result += DirectionalLight.Color.rgb * DirectionalLight.Intensity * band * GetDirectionalShadow(worldPos);
-    AccumulateToonPointSpotDiffuse(worldPos, N, screenPos, result);
+    float3 result = float3(0, 0, 0);
+    result += CalcAmbient(AmbientLight.Color.rgb, AmbientLight.Intensity);
+    result += CalcDirectionalToonDiffuse(DirectionalLight.Color.rgb, DirectionalLight.Direction,
+                                         DirectionalLight.Intensity, N) * GetDirectionalShadow(worldPos, N);
+    AccumulatePointSpotToonDiffuse(worldPos, N, screenPos, result);
     return result;
-}
-
-float CalcRimMask(float3 N, float3 V)
-{
-    float rimDot = 1.0f - saturate(dot(N, V));
-    return smoothstep(g_ToonRimMin, g_ToonRimMax, rimDot);
 }
 #endif
 
@@ -358,7 +264,7 @@ float3 AccumulateDiffuse(float3 worldPos, float3 N, float4 screenPos)
     float3 result = float3(0, 0, 0);
     result += CalcAmbient(AmbientLight.Color.rgb, AmbientLight.Intensity);
     result += CalcDirectionalDiffuse(DirectionalLight.Color.rgb, DirectionalLight.Direction,
-                                     DirectionalLight.Intensity, N) * GetDirectionalShadow(worldPos);
+                                     DirectionalLight.Intensity, N) * GetDirectionalShadow(worldPos, N);
     AccumulatePointSpotDiffuse(worldPos, N, screenPos, result);
     return result;
 }
@@ -367,7 +273,7 @@ float3 AccumulateSpecular(float3 worldPos, float3 N, float3 V, float shininess, 
 {
     float3 result = float3(0, 0, 0);
     result += CalcDirectionalSpecular(DirectionalLight.Color.rgb, DirectionalLight.Direction,
-                                      DirectionalLight.Intensity, N, V, shininess) * GetDirectionalShadow(worldPos);
+                                      DirectionalLight.Intensity, N, V, shininess) * GetDirectionalShadow(worldPos, N);
     AccumulatePointSpotSpecular(worldPos, N, V, shininess, screenPos, result);
     return result;
 }

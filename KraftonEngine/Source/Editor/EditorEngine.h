@@ -17,6 +17,7 @@ class UGizmoComponent;
 class FLevelEditorViewportClient;
 class FEditorViewportClient;
 class FOverlayStatSystem;
+class ULightComponentBase;
 
 class UEditorEngine : public UEngine
 {
@@ -64,6 +65,7 @@ public:
 	bool IsMouseOverViewport() const { return ViewportLayout.IsMouseOverViewport(); }
 
 	void RenderUI(float DeltaTime);
+	void NotifyLightComponentChanged(ULightComponentBase* LightComponent);
 
 	FOverlayStatSystem& GetOverlayStatSystem() { return OverlayStatSystem; }
 	const FOverlayStatSystem& GetOverlayStatSystem() const { return OverlayStatSystem; }

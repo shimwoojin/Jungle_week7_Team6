@@ -2,9 +2,9 @@
 #include "Render/Pipeline/ForwardLightData.h"
 struct LightBaseParams
 {
-	float Intensity; //4
-	FVector4 LightColor; //16 
-	bool bVisible; // 4
+	float Intensity = 0.0f; //4
+	FVector4 LightColor = FVector4(1.0f, 1.0f, 1.0f, 1.0f); //16 
+	bool bVisible = true; // 4
 };
 struct FGlobalAmbientLightParams : public LightBaseParams
 {
@@ -13,15 +13,15 @@ struct FGlobalAmbientLightParams : public LightBaseParams
 
 struct FGlobalDirectionalLightParams : public LightBaseParams
 {
-	FVector Direction;
+	FVector Direction = FVector(0.0f, 0.0f, 0.0f);
 };
 
 struct FPointLightParams : public LightBaseParams
 {
-	FVector Position;
-	float AttenuationRadius;
-	float LightFalloffExponent;
-	uint32 LightType;
+	FVector Position = FVector(0.0f, 0.0f, 0.0f);
+	float AttenuationRadius = 0.0f;
+	float LightFalloffExponent = 0.0f;
+	uint32 LightType = 0;
 
 	virtual FLightInfo ToLightInfo() const
 	{
@@ -45,9 +45,9 @@ struct FPointLightParams : public LightBaseParams
 
 struct FSpotLightParams : public FPointLightParams
 {
-	FVector Direction;
-	float InnerConeCos;
-	float OuterConeCos;
+	FVector Direction = FVector(0.0f, 0.0f, 0.0f);
+	float InnerConeCos = 0.0f;
+	float OuterConeCos = 0.0f;
 
 	virtual FLightInfo ToLightInfo() const override
 	{

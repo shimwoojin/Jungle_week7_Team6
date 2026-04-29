@@ -18,6 +18,9 @@
 #define LIGHT_TYPE_SPOT 1
 #define LIGHT_TYPE_DIRECTIONAL 2
 
+#define SHADOW_INFO_TYPE_ATLAS2D 0
+#define SHADOW_INFO_TYPE_CUBEMAP 1
+
 #define TILE_SIZE 16
 #define MAX_LIGHTS_PER_TILE 256
 
@@ -55,10 +58,14 @@ struct FShadowInfo
     uint Type;
     uint ArrayIndex;
     uint LightIndex;
-    uint Padding0;
+    uint bIsPSM;
+
+    uint CubeTierIndex;
+    uint3 _padShadowInfo;
 
     row_major float4x4 LightVP;
     float4 SampleData;
+    float4 ShadowParams; //x = Cosntant Bias, y = Slope Bias, z = Sharpen, w = nearZ
 };
 
 struct FLightInfo
@@ -112,7 +119,12 @@ cbuffer LightingBuffer : register(b4)
     uint LightCullingMode;
     uint VisualizeLightCulling;
     float HeatMapMax;
-    uint Pad;
+    uint ShadowMethod;
+
+    row_major float4x4 CascadeMatrices[4];
+    float4 CascadeSplits;
+    uint NumCascades;
+    uint3 _pad2;
 };
 
 StructuredBuffer<FLightInfo> AllLights : register(t8);
@@ -122,6 +134,9 @@ StructuredBuffer<uint> g_ClusterLightIndices : register(t11);
 StructuredBuffer<uint2> g_ClusterLightGrid : register(t12);
 StructuredBuffer<FShadowInfo> gShadowInfos : register(t21);
 Texture2DArray gShadowAtlasArray : register(t22);
-TextureCubeArray gShadowCubeArray : register(t23);
+TextureCubeArray gShadowCubeArrayTier0 : register(t23);
+TextureCubeArray gShadowCubeArrayTier1 : register(t24);
+TextureCubeArray gShadowCubeArrayTier2 : register(t25);
+TextureCubeArray gShadowCubeArrayTier3 : register(t26);
 
 #endif // FORWARD_LIGHT_DATA_HLSLI

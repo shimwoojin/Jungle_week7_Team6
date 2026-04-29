@@ -23,7 +23,11 @@ public:
 
 	// --- 월드 타입 ---
 	EWorldType GetWorldType() const { return WorldType; }
-	void SetWorldType(EWorldType InType) { WorldType = InType; }
+	void SetWorldType(EWorldType InType)
+	{
+		WorldType = InType;
+		Scene.SetDebugWorldType(InType);
+	}
 
 	// 월드 복제 — 자체 Actor 리스트를 순회하며 각 Actor를 새 World로 Duplicate.
 	// UObject::Duplicate는 Serialize 왕복만 수행하므로 UWorld처럼 컨테이너 기반 상태가 있는

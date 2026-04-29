@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Core/CoreTypes.h"
 
@@ -35,6 +35,7 @@ public:
 	UGizmoComponent* GetGizmo() const { return Gizmo; }
 
 	void SetGizmoEnabled(bool bEnabled);
+	bool IsGizmoEnabled() const { return bGizmoEnabled; }
 	void SetWorld(UWorld* InWorld);
 
 private:

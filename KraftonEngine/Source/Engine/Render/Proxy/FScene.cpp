@@ -1,8 +1,23 @@
 ﻿#include "Render/Proxy/FScene.h"
 #include "Component/PrimitiveComponent.h"
 #include "GameFramework/AActor.h"
+#include "Core/Log.h"
 #include "Profiling/Stats.h"
 #include <algorithm>
+
+namespace
+{
+	const char* GetSceneWorldTypeName(EWorldType WorldType)
+	{
+		switch (WorldType)
+		{
+		case EWorldType::Editor: return "Editor";
+		case EWorldType::Game: return "Game";
+		case EWorldType::PIE: return "PIE";
+		default: return "Unknown";
+		}
+	}
+}
 
 void FScene::EnqueueDirtyProxy(TArray<FPrimitiveSceneProxy*>& DirtyList, FPrimitiveSceneProxy* Proxy)
 {
@@ -57,6 +72,22 @@ FScene::~FScene()
 	SelectedProxies.clear();
 	NeverCullProxies.clear();
 	FreeSlots.clear();
+}
+
+void FScene::InitializeShadowAtlas(ID3D11Device* Device, ID3D11DeviceContext* Context, uint32 AtlasSize)
+{
+	if (bShadowAtlasInitialized)
+	{
+		return;
+	}
+
+	ShadowAtlasPool.Initialize(Device, Context, AtlasSize);
+	bShadowAtlasInitialized = true;
+	UE_LOG(
+		"[ShadowAtlas] Scene=%s Pool=%p Layers=%u",
+		GetSceneWorldTypeName(DebugWorldType),
+		static_cast<void*>(&ShadowAtlasPool),
+		ShadowAtlasPool.GetAllocatedLayerCount());
 }
 
 // ============================================================
@@ -204,6 +235,10 @@ void FScene::UpdateDirtyProxies()
 		if (HasFlag(FlagsToProcess, EDirtyFlag::Visibility))
 		{
 			Proxy->UpdateVisibility();
+		}
+		if (HasFlag(FlagsToProcess, EDirtyFlag::Shadow))
+		{
+			Proxy->UpdateShadowFlags();
 		}
 	}
 }

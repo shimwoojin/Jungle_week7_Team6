@@ -25,8 +25,16 @@ enum class ELightCullingMode : uint32
 
 enum class EShadowFilterMode : uint32
 {
-	PCF = 0,
-	VSM = 1
+	None = 0,		// Hard Shadow
+	PCF = 1,		// Percentage-Closer Filtering
+	VSM = 2			// Variance Shadow Mapping
+};
+
+enum class EShadowMethod : uint32
+{
+	Standard = 0,
+	PSM = 1,
+	CSM = 2
 };
 
 struct FShowFlags
@@ -88,6 +96,8 @@ struct FViewportRenderOptions
 
 	// Shadow debug/control 설정
 	bool bOverrideCameraWithSelectedLight = false;
-	int32 ShadowMapResolution = 1024;
+	uint32 PointLightPreviewFaceIndex = 0;
+	int32 ShadowMapResolution = 2048;
 	EShadowFilterMode ShadowFilterMode = EShadowFilterMode::PCF;
+	EShadowMethod ShadowMethod = EShadowMethod::Standard;
 };

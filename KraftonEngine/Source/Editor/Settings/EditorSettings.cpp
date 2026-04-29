@@ -124,7 +124,7 @@ void FEditorSettings::SaveToFile(const FString& Path) const
 		SlotObj[Key::LightCullingMode] = static_cast<int32>(Opts.LightCullingMode);
 		SlotObj[Key::HeatMapMax] = Opts.HeatMapMax;
 		SlotObj[Key::Enable25DCulling] = Opts.Enable25DCulling;
-		SlotObj[Key::bOverrideCameraWithSelectedLight] = Opts.bOverrideCameraWithSelectedLight;
+		//SlotObj[Key::bOverrideCameraWithSelectedLight] = Opts.bOverrideCameraWithSelectedLight;
 		SlotObj[Key::ShadowMapResolution] = Opts.ShadowMapResolution;
 		SlotObj[Key::ShadowFilterMode] = static_cast<int32>(Opts.ShadowFilterMode);
 		SlotsArr.append(SlotObj);

@@ -1,4 +1,4 @@
-#include "Render/Proxy/PrimitiveSceneProxy.h"
+﻿#include "Render/Proxy/PrimitiveSceneProxy.h"
 #include "Component/PrimitiveComponent.h"
 #include "GameFramework/AActor.h"
 #include "Render/Resource/ShaderManager.h"
@@ -81,5 +81,10 @@ void FPrimitiveSceneProxy::UpdateMesh()
 		uint32 IdxCount = MeshBuffer->GetIndexBuffer().GetIndexCount();
 		SectionDraws.push_back({ DefaultMaterial, 0, IdxCount });
 	}
+}
+
+void FPrimitiveSceneProxy::UpdateShadowFlags()
+{
+	bCastShadow = Owner->IsCastShadow();
 }
 

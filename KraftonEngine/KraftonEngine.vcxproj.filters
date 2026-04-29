@@ -689,7 +689,11 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\TextureAtalsPool.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\TexturePool\TexturePool.cpp" />
-    <ClCompile Include="Source\Engine\Render\Resource\TexturePool\UVManager\FUVManager.cpp" />
+    <ClCompile Include="Source\Engine\Render\Resource\TexturePool\UVManager\Allocator\BuddyTexturePoolAllocator.cpp" />
+    <ClCompile Include="Source\Engine\Render\Resource\TexturePool\UVManager\Allocator\GridTexturePoolAllocator.cpp" />
+    <ClCompile Include="Source\Engine\Render\Resource\TexturePool\UVManager\Allocator\TexturePoolAllocatorBase.cpp" />
+    <ClCompile Include="Source\Engine\Render\Resource\TexturePool\TextureCubeShadowPool.cpp" />
+    <ClCompile Include="Source\Editor\UI\EditorShadowPropertyWidget.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Editor\EditorEngine.h">
@@ -1264,7 +1268,13 @@
     </ClInclude>
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\TextureAtalsPool.h" />
     <ClInclude Include="Source\Engine\Render\Resource\TexturePool\TexturePool.h" />
-    <ClInclude Include="Source\Engine\Render\Resource\TexturePool\UVManager\FUVManager.h" />
+    <ClInclude Include="Source\Engine\Render\Resource\TexturePool\TexturePoolTypes.h" />
+    <ClInclude Include="Source\Engine\Render\Resource\TexturePool\UVManager\Allocator\BuddyTexturePoolAllocator.h" />
+    <ClInclude Include="Source\Engine\Render\Resource\TexturePool\UVManager\Allocator\GridTexturePoolAllocator.h" />
+    <ClInclude Include="Source\Engine\Render\Resource\TexturePool\UVManager\Allocator\TexturePoolAllocatorBase.h" />
+    <ClInclude Include="Source\Engine\Render\Resource\TexturePool\UVManager\TexturePoolAllocator.h" />
+    <ClInclude Include="Source\Engine\Render\Resource\TexturePool\TextureCubeShadowPool.h" />
+    <ClInclude Include="Source\Editor\UI\EditorShadowPropertyWidget.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="KraftonEngine.rc" />

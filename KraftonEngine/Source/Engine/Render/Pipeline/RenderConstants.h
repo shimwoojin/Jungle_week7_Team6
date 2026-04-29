@@ -59,7 +59,10 @@ namespace ESystemTexSlot
 	constexpr uint32 CullingHeatmap = 20; // t20: Tile Culling Heatmap (R8G8B8A8_UNORM)
 	constexpr uint32 ShadowInfos = 21; // t21: StructuredBuffer<FShadowInfo>
 	constexpr uint32 ShadowAtlasArray = 22; // t22: Texture2DArray shadow atlas
-	constexpr uint32 ShadowCubeArray = 23; // t23: TextureCubeArray point shadow reserve
+	constexpr uint32 ShadowCubeArrayTier0 = 23; // t23: 256-ish point shadow cube array
+	constexpr uint32 ShadowCubeArrayTier1 = 24; // t24: 512-ish point shadow cube array
+	constexpr uint32 ShadowCubeArrayTier2 = 25; // t25: 1024-ish point shadow cube array
+	constexpr uint32 ShadowCubeArrayTier3 = 26; // t26: 2048-ish point shadow cube array
 }
 
 // HLSL 시스템 샘플러 슬롯 — Renderer가 프레임 시작 시 영구 바인딩

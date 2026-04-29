@@ -1,8 +1,11 @@
 ﻿#include "Editor/Subsystem/OverlayStatSystem.h"
 
 #include "Editor/EditorEngine.h"
+#include "GameFramework/World.h"
 #include "Engine/Profiling/Timer.h"
 #include "Engine/Profiling/MemoryStats.h"
+#include "Render/Proxy/FScene.h"
+#include "Render/Proxy/SceneEnvironment.h"
 #include <cstdio>
 
 // バイト数を適切な単位 (B / KB / MB / GB) に変換して文字列化
@@ -51,6 +54,10 @@ void FOverlayStatSystem::BuildLines(const UEditorEngine& Editor, TArray<FOverlay
 		++EstimatedLineCount;
 	}
 	if (bShowMemory)
+	{
+		EstimatedLineCount += 8;
+	}
+	if (bShowLight)
 	{
 		EstimatedLineCount += 8;
 	}
@@ -145,6 +152,59 @@ void FOverlayStatSystem::BuildLines(const UEditorEngine& Editor, TArray<FOverlay
 			FormatBytes(Buffer, sizeof(Buffer), Entry.Label, Entry.Bytes);
 			AppendLine(OutLines, CurrentY, FString(Buffer));
 			CurrentY += Layout.LineHeight;
+		}
+	}
+
+	if (bShowLight)
+	{
+		const UWorld* World = Editor.GetWorld();
+		char Buffer[128] = {};
+
+		if (World)
+		{
+			const FSceneEnvironment& Env = World->GetScene().GetEnvironment();
+			const uint32 NumAmbientLights = Env.GetNumAmbientLights();
+			const uint32 NumDirectionalLights = Env.GetNumDirectionalLights();
+			const uint32 NumPointLights = Env.GetNumPointLights();
+			const uint32 NumSpotLights = Env.GetNumSpotLights();
+			const uint32 NumTotalLights = NumAmbientLights + NumDirectionalLights + NumPointLights + NumSpotLights;
+
+			snprintf(Buffer, sizeof(Buffer), "Total Lights : %u", NumTotalLights);
+			AppendLine(OutLines, CurrentY, FString(Buffer));
+			CurrentY += Layout.LineHeight;
+
+			snprintf(Buffer, sizeof(Buffer), "Ambient Lights : %u", NumAmbientLights);
+			AppendLine(OutLines, CurrentY, FString(Buffer));
+			CurrentY += Layout.LineHeight;
+
+			snprintf(Buffer, sizeof(Buffer), "Directional Lights : %u", NumDirectionalLights);
+			AppendLine(OutLines, CurrentY, FString(Buffer));
+			CurrentY += Layout.LineHeight;
+
+			snprintf(Buffer, sizeof(Buffer), "Point Lights : %u", NumPointLights);
+			AppendLine(OutLines, CurrentY, FString(Buffer));
+			CurrentY += Layout.LineHeight;
+
+			snprintf(Buffer, sizeof(Buffer), "Spot Lights : %u", NumSpotLights);
+			AppendLine(OutLines, CurrentY, FString(Buffer));
+			CurrentY += Layout.LineHeight;
+
+			FormatBytes(Buffer, sizeof(Buffer), "Shadow Atlas Memory", MemoryStats::GetShadowAtlasMemory());
+			AppendLine(OutLines, CurrentY, FString(Buffer));
+			CurrentY += Layout.LineHeight;
+
+			FormatBytes(Buffer, sizeof(Buffer), "Shadow Cube Memory", MemoryStats::GetShadowCubeMemory());
+			AppendLine(OutLines, CurrentY, FString(Buffer));
+			CurrentY += Layout.LineHeight;
+
+			FormatBytes(Buffer, sizeof(Buffer), "Shadow Total Memory", MemoryStats::GetShadowAtlasMemory() + MemoryStats::GetShadowCubeMemory());
+			AppendLine(OutLines, CurrentY, FString(Buffer));
+			CurrentY += Layout.LineHeight + Layout.GroupSpacing;
+		}
+		else
+		{
+			AppendLine(OutLines, CurrentY, "Lights : unavailable");
+			CurrentY += Layout.LineHeight + Layout.GroupSpacing;
 		}
 	}
 }

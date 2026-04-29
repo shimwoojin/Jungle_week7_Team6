@@ -18,6 +18,7 @@
 
 class FD3DDevice;
 class FScene;
+class FTextureAtlasPool;
 struct FFrameContext;
 
 struct FShadowFrameBindingData
@@ -26,6 +27,11 @@ struct FShadowFrameBindingData
 	TArray<int32> PointLightShadowIndices;
 	TArray<int32> SpotLightShadowIndices;
 	int32 DirectionalShadowIndex = -1;
+
+	uint32 ShadowMethod = 0;
+	uint32 NumCascades = 0;
+	FVector4 CascadeSplits;
+	FShadowMatrixGPU CascadeMatrices[4];
 };
 
 struct FLightingResource
@@ -113,7 +119,7 @@ struct FSystemResources
 	void UnbindTileCullingBuffers(FD3DDevice& Device);
 
 	// 쉐도우 리소스 SRV 바인딩 (t21, t22, t23, t24, t25)
-	void BindShadowResources(FD3DDevice& Device);
+	void BindShadowResources(FD3DDevice& Device, FTextureAtlasPool& AtlasPool);
 	void UnbindShadowResources(FD3DDevice& Device);
 
 	// 시스템 텍스처 슬롯 언바인딩 (t16-t19)

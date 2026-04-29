@@ -1,9 +1,30 @@
 ﻿#include "TexturePool.h"
+#include "UVManager/TexturePoolAllocator.h"
 
-void FTexturePoolBase::Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, uint32 InTextureSize)
+void FTexturePoolHandleSet::Release()
+{
+	if (Pool)
+	{
+		Pool->ReleaseHandleSet(this);
+	}
+}
+
+FTexturePoolBase::~FTexturePoolBase() = default;
+
+void FTexturePoolBase::Initialize(
+	ID3D11Device* InDevice,
+	ID3D11DeviceContext* InDeviceContext,
+	uint32 InTextureSize,
+	uint32 InAllocatorMinBlockSize)
 {
 	Device = InDevice;
 	DeviceContext = InDeviceContext;
+	Allocator = CreateAllocator();
+
+	if (Allocator)
+	{
+		Allocator->Initialize(InTextureSize, 1, InAllocatorMinBlockSize);
+	}
 
 	SetTextureSize(InTextureSize);
 	SetTextureLayerSize(1);
@@ -13,21 +34,137 @@ void FTexturePoolBase::Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* I
 	RebuildDSV(Device, Texture.Get());
 }
 
-void FTexturePoolBase::ReleaseHandleSet(TexturePoolHandleSet* InHandleSet)
+FTexturePoolBase::TexturePoolHandleSet* FTexturePoolBase::GetTextureHandle(TexturePoolHandleRequest HandleRequest)
 {
-	TArray<TexturePoolHandle> Handles = InHandleSet->Handles;
-	for (auto& Handle : Handles)
+	if (!Allocator)
 	{
-		ReleaseHandle(Handle);
+		return nullptr;
 	}
 
-	uint32 TargetIndex = InHandleSet->InternalIndex;
-	if (TargetIndex + 1 < AllocatedHandleList.size())
+	std::unique_ptr<TexturePoolHandleSet> HandleSet = std::make_unique<TexturePoolHandleSet>(
+		this,
+		Allocator->ReserveHandleSetId());
+
+	for (uint32 Size : HandleRequest.Sizes)
 	{
-		AllocatedHandleList[TargetIndex] = std::move(AllocatedHandleList.back());
-		AllocatedHandleList[TargetIndex].get()->InternalIndex = TargetIndex;
+		TexturePoolHandle Handle;
+		bool bAllocated = false;
+		while (!bAllocated)
+		{
+			if (Allocator->AllocateHandle(static_cast<float>(Size), Handle))
+			{
+				bAllocated = true;
+				break;
+			}
+
+			ResizeLayer();
+		}
+
+		HandleSet->Handles.push_back(Handle);
 	}
-	AllocatedHandleList.pop_back();
+
+	HandleSet->bIsValid = true;
+	HandleSet->AllocatedSizes = HandleRequest.Sizes;
+	return Allocator->RegisterHandleSet(std::move(HandleSet));
+}
+
+FTexturePoolBase::TexturePoolHandleSet* FTexturePoolBase::TryGetTextureHandleNoResize(TexturePoolHandleRequest HandleRequest)
+{
+	if (!Allocator)
+	{
+		return nullptr;
+	}
+
+	std::unique_ptr<TexturePoolHandleSet> HandleSet = std::make_unique<TexturePoolHandleSet>(
+		this,
+		Allocator->ReserveHandleSetId());
+
+	for (uint32 Size : HandleRequest.Sizes)
+	{
+		TexturePoolHandle Handle;
+		if (!Allocator->AllocateHandle(static_cast<float>(Size), Handle))
+		{
+			for (const TexturePoolHandle& AllocatedHandle : HandleSet->Handles)
+			{
+				Allocator->ReleaseHandle(AllocatedHandle);
+			}
+			return nullptr;
+		}
+
+		HandleSet->Handles.push_back(Handle);
+	}
+
+	HandleSet->bIsValid = true;
+	HandleSet->AllocatedSizes = HandleRequest.Sizes;
+	return Allocator->RegisterHandleSet(std::move(HandleSet));
+}
+
+bool FTexturePoolBase::CanAllocateTextureHandleSet(const TexturePoolHandleRequest& HandleRequest) const
+{
+	return Allocator ? Allocator->CanAllocateHandleSet(HandleRequest) : false;
+}
+
+float FTexturePoolBase::EstimateAllocationCost(const TexturePoolHandleRequest& HandleRequest) const
+{
+	return Allocator ? Allocator->EstimateAllocationCost(HandleRequest) : 0.0f;
+}
+
+uint32 FTexturePoolBase::GetAllocatorMinBlockSize() const
+{
+	return Allocator ? Allocator->GetMinBlockSize() : 0;
+}
+
+uint32 FTexturePoolBase::GetAllocatorFreeRectCount() const
+{
+	return Allocator ? Allocator->GetFreeRectCount() : 0;
+}
+
+uint64 FTexturePoolBase::GetAllocatorTotalFreeArea() const
+{
+	return Allocator ? Allocator->GetTotalFreeArea() : 0;
+}
+
+uint64 FTexturePoolBase::GetAllocatorLargestFreeRectArea() const
+{
+	return Allocator ? Allocator->GetLargestFreeRectArea() : 0;
+}
+
+float FTexturePoolBase::GetAllocatorFragmentationRatio() const
+{
+	return Allocator ? Allocator->GetFragmentationRatio() : 1.0f;
+}
+
+void FTexturePoolBase::GetAllocatorFreeRects(TArray<FAtlasDebugRect>& OutRects) const
+{
+	if (Allocator)
+	{
+		Allocator->GetFreeRects(OutRects);
+	}
+}
+
+void FTexturePoolBase::GetAllocatorAllocatedRects(TArray<FAtlasDebugRect>& OutRects) const
+{
+	if (Allocator)
+	{
+		Allocator->GetAllocatedRects(OutRects);
+	}
+}
+
+void FTexturePoolBase::ReleaseHandleSet(TexturePoolHandleSet* InHandleSet)
+{
+	if (!Allocator || !InHandleSet)
+	{
+		return;
+	}
+
+	TArray<TexturePoolHandle> Handles = InHandleSet->Handles;
+	for (const TexturePoolHandle& Handle : Handles)
+	{
+		Allocator->ReleaseHandle(Handle);
+	}
+
+	DebugResource.erase(InHandleSet->InternalIndex);
+	Allocator->UnregisterHandleSet(InHandleSet->InternalIndex);
 }
 
 void FTexturePoolBase::RebuildDSV(ID3D11Device* Device, ID3D11Texture2D* InTexture)
@@ -86,20 +223,39 @@ void FTexturePoolBase::ResizeLayer(uint32 InNewLayerSize)
 
 void FTexturePoolBase::BroadCastHandlesUnvalid()
 {
-	for (auto& HandleSet : AllocatedHandleList)
+	DebugResource.clear();
+	if (Allocator)
 	{
-		HandleSet.get()->bIsValid = false;
+		Allocator->InvalidateAllHandleSets();
 	}
+}
+
+void FTexturePoolBase::MarkDebugDirty(TexturePoolHandleSet* InHandleSet)
+{
+	if (!InHandleSet)
+	{
+		return;
+	}
+
+	++InHandleSet->DebugVersion;
 }
 
 void FTexturePoolBase::SetTextureLayerSize(uint32 InTextureLayerSize)
 {
 	TextureLayerSize = InTextureLayerSize;
+	if (Allocator)
+	{
+		Allocator->SetLayerCount(TextureLayerSize);
+	}
 	OnSetTextureLayerSize();
 }
 
 void FTexturePoolBase::SetTextureSize(uint32 InTextureSize)
 {
 	TextureSize = InTextureSize;
+	if (Allocator)
+	{
+		Allocator->SetSize(TextureSize);
+	}
 	OnSetTextureSize();
 }

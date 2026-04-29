@@ -3,6 +3,8 @@
 #include "Viewport/ViewportClient.h"
 #include "Render/Types/RenderTypes.h"
 #include "Render/Types/ViewTypes.h"
+#include "Math/Vector.h"
+#include "Math/Rotator.h"
 
 #include "UI/SWindow.h"
 #include <string>
@@ -11,6 +13,8 @@
 class UWorld;
 class UCameraComponent;
 class UGizmoComponent;
+class ULightComponent;
+class ULightComponentBase;
 class FEditorSettings;
 class FWindowsWindow;
 class FSelectionManager;
@@ -45,6 +49,7 @@ public:
 	UCameraComponent* GetCamera() const { return Camera; }
 
 	void Tick(float DeltaTime);
+	void OnLightComponentChanged(ULightComponentBase* LightComponent);
 
 	// 활성 상태 — 활성 뷰포트만 입력 처리
 	void SetActive(bool bInActive) { bIsActive = bInActive; }
@@ -72,9 +77,35 @@ public:
 
 private:
 	void TickEditorShortcuts();
+	void TickLightCameraOverride();
+	ULightComponent* GetSelectedLight() const;
+	void EnterLightCameraOverride(ULightComponent* LightComponent);
+	void ExitLightCameraOverride();
+	void SyncLightCameraOverride();
 	void TickInput(float DeltaTime);
 	void TickInteraction(float DeltaTime);
 	void HandleDragStart(const FRay& Ray); //픽킹 시작
+
+	struct FCameraOverrideSnapshot
+	{
+		bool bValid = false;
+		FVector Location = FVector(0.0f, 0.0f, 0.0f);
+		FVector FocusPoint = FVector(0.0f, 0.0f, 0.0f);
+		FVector Forward = FVector(1.0f, 0.0f, 0.0f);
+		FVector Right = FVector(0.0f, 1.0f, 0.0f);
+		FVector Up = FVector(0.0f, 0.0f, 1.0f);
+		FRotator Rotation;
+		float FOV = 3.14159265358979f / 3.0f;
+		float NearZ = 0.1f;
+		float FarZ = 1000.0f;
+		float OrthoWidth = 10.0f;
+		bool bIsOrthographic = false;
+		bool bWasGizmoEnabled = true;
+		ELevelViewportType ViewportType = ELevelViewportType::Perspective;
+	};
+
+	void SaveCameraOverrideSnapshot();
+	void RestoreCameraOverrideSnapshot();
 
 private:
 	FViewport* Viewport = nullptr;
@@ -91,6 +122,10 @@ private:
 	float WindowHeight = 1080.f;
 
 	bool bIsActive = false;
+	bool bLightCameraOverrideActive = false;
+	uint32 LastPointLightPreviewFaceIndex = 0;
+	ULightComponent* PreviewLightComponent = nullptr;
+	FCameraOverrideSnapshot CameraOverrideSnapshot;
 	// 뷰포트 슬롯의 스크린 좌표 (ImGui screen space = 윈도우 클라이언트 좌표)
 	FRect ViewportScreenRect;
 };

@@ -968,6 +968,17 @@ void FLevelViewportLayout::RenderPaneToolbar(int32 SlotIndex)
 				ImGui::Checkbox("Enable2.5DCulling", &Opts.Enable25DCulling);
 				ImGui::Checkbox("Visualize2.5DCulling", &Opts.ShowFlags.bVisualize25DCulling);
 
+				// Shadow Filter Mode (None, PCF, VSM)
+				ImGui::Text("Shadow Filter");
+				int32 ShadowFilterMode = static_cast<int32>(Opts.ShadowFilterMode);
+				ImGui::RadioButton("None", &ShadowFilterMode, static_cast<int32>(EShadowFilterMode::None));
+				ImGui::SameLine();
+				ImGui::RadioButton("PCF", &ShadowFilterMode, static_cast<int32>(EShadowFilterMode::PCF));
+				ImGui::SameLine();
+				ImGui::RadioButton("VSM", &ShadowFilterMode, static_cast<int32>(EShadowFilterMode::VSM));
+				ImGui::SameLine();
+				Opts.ShadowFilterMode = static_cast<EShadowFilterMode>(ShadowFilterMode);
+
 				ImGui::EndPopup();
 			}
 		} // SlotIndex guard

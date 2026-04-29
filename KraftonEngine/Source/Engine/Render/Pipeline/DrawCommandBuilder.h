@@ -10,6 +10,13 @@ class FPassRenderStateTable;
 class FTextRenderSceneProxy;
 class FScene;
 
+struct FEditorDebugLine
+{
+	FVector Start;
+	FVector End;
+	FColor Color;
+};
+
 /*
 	FDrawCommandBuilder — Collect 페이즈에서 Proxy/Scene 데이터를 FDrawCommand로 변환합니다.
 	FRenderer에서 커맨드 빌드 책임을 분리하여, Renderer는 GPU 제출에만 집중합니다.
@@ -32,6 +39,7 @@ public:
 
 	// Scene 경량 데이터 → 동적 지오메트리 → FDrawCommand
 	void BuildDynamicCommands(const FFrameContext& Frame, const FScene* Scene);
+	void BuildLateEditorLineCommands(EViewMode ViewMode, const TArray<FEditorDebugLine>& Lines);
 
 	// 결과 접근
 	FDrawCommandList& GetCommandList() { return DrawCommandList; }
@@ -61,11 +69,13 @@ private:
 	// Collect 페이즈 상태
 	const FPassRenderStateTable* PassRenderStateTable = nullptr;
 	EViewMode CollectViewMode = EViewMode::Lit_Phong;
+	EShadowFilterMode CollectShadowFilterMode = EShadowFilterMode::PCF;
 	bool bHasSelectionMaskCommands = false;
 
 	// 동적 지오메트리
 	FLineGeometry  EditorLines;
 	FLineGeometry  GridLines;
+	FLineGeometry  LateEditorLines;
 	FFontGeometry  FontGeometry;
 
 	// PerObject CB 풀

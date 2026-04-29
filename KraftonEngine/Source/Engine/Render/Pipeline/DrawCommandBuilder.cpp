@@ -23,6 +23,7 @@ void FDrawCommandBuilder::Create(ID3D11Device* InDevice, ID3D11DeviceContext* In
 
 	EditorLines.Create(InDevice);
 	GridLines.Create(InDevice);
+	LateEditorLines.Create(InDevice);
 	FontGeometry.Create(InDevice);
 
 	FogCB.Create(InDevice, sizeof(FFogConstants));
@@ -35,6 +36,7 @@ void FDrawCommandBuilder::Release()
 {
 	EditorLines.Release();
 	GridLines.Release();
+	LateEditorLines.Release();
 	FontGeometry.Release();
 
 	for (FConstantBuffer& CB : PerObjectCBPool)
@@ -56,6 +58,7 @@ void FDrawCommandBuilder::BeginCollect(const FFrameContext& Frame, uint32 MaxPro
 {
 	DrawCommandList.Reset();
 	CollectViewMode = Frame.RenderOptions.ViewMode;
+	CollectShadowFilterMode = Frame.RenderOptions.ShadowFilterMode;
 	bHasSelectionMaskCommands = false;
 
 	// PerObjectCBPool 미리 할당 — Collect 도중 resize로 FDrawCommand.PerObjectCB
@@ -66,6 +69,7 @@ void FDrawCommandBuilder::BeginCollect(const FFrameContext& Frame, uint32 MaxPro
 	// 동적 지오메트리 초기화
 	EditorLines.Clear();
 	GridLines.Clear();
+	LateEditorLines.Clear();
 	FontGeometry.Clear();
 	FontGeometry.ClearScreen();
 
@@ -81,14 +85,17 @@ FShader* FDrawCommandBuilder::SelectEffectiveShader(FShader* ProxyShader, EViewM
 	if (ProxyShader != FShaderManager::Get().GetOrCreate(EShaderPath::UberLit))
 		return ProxyShader;
 
+	const bool bUseVSM = CollectShadowFilterMode == EShadowFilterMode::VSM;
+	const bool bUsePCF = CollectShadowFilterMode == EShadowFilterMode::PCF;
+
 	switch (ViewMode)
 	{
 	case EViewMode::Unlit:        return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Unlit));
-	case EViewMode::Lit_Gouraud:  return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Gouraud));
-	case EViewMode::Lit_Lambert:  return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Lambert));
-	case EViewMode::Lit_Phong:    return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Phong));
-	case EViewMode::Lit_Toon:     return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Toon));
-	case EViewMode::LightCulling: return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, EUberLitDefines::Phong));
+	case EViewMode::Lit_Gouraud:  return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, bUseVSM ? EUberLitDefines::GouraudVSM	: (bUsePCF ? EUberLitDefines::GouraudPCF : EUberLitDefines::Gouraud)));
+	case EViewMode::Lit_Lambert:  return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, bUseVSM ? EUberLitDefines::LambertVSM	: (bUsePCF ? EUberLitDefines::LambertPCF : EUberLitDefines::Lambert)));
+	case EViewMode::Lit_Phong:    return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, bUseVSM ? EUberLitDefines::PhongVSM		: (bUsePCF ? EUberLitDefines::PhongPCF : EUberLitDefines::Phong)));
+	case EViewMode::Lit_Toon:     return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, bUseVSM ? EUberLitDefines::ToonVSM		: (bUsePCF ? EUberLitDefines::ToonPCF : EUberLitDefines::Toon)));
+	case EViewMode::LightCulling: return FShaderManager::Get().GetOrCreate(FShaderKey(EShaderPath::UberLit, bUseVSM ? EUberLitDefines::PhongVSM		: (bUsePCF ? EUberLitDefines::PhongPCF : EUberLitDefines::Phong)));
 	default:                      return ProxyShader;
 	}
 }
@@ -274,6 +281,20 @@ void FDrawCommandBuilder::BuildDynamicCommands(const FFrameContext& Frame, const
 	BuildDynamicDrawCommands(Frame, Scene);
 }
 
+void FDrawCommandBuilder::BuildLateEditorLineCommands(EViewMode ViewMode, const TArray<FEditorDebugLine>& Lines)
+{
+	LateEditorLines.Clear();
+	for (const FEditorDebugLine& Line : Lines)
+	{
+		LateEditorLines.AddLine(Line.Start, Line.End, Line.Color.ToVector4());
+	}
+
+	FShader* EditorShader = FShaderManager::Get().GetOrCreate(EShaderPath::Editor);
+	FDrawCommandRenderState EditorLinesRS = PassRenderStateTable->ToDrawCommandState(ERenderPass::EditorLines, ViewMode);
+	EditorLinesRS.DepthStencil = EDepthStencilState::NoDepth;
+	EmitLineCommand(LateEditorLines, EditorShader, EditorLinesRS);
+}
+
 // ============================================================
 // PrepareDynamicGeometry — FScene의 경량 데이터 → 라인/폰트 지오메트리
 // ============================================================
@@ -302,7 +323,11 @@ void FDrawCommandBuilder::PrepareDynamicGeometry(const FFrameContext& Frame, con
 			Frame.RenderOptions.ShowFlags,
 			Scene->GetGridSpacing(),
 			Scene->GetGridHalfLineCount(),
-			CameraPos, CameraFwd, Frame.IsFixedOrtho());
+			CameraPos, CameraFwd, Frame.CameraRight, Frame.CameraUp,
+			Frame.bIsOrtho,
+			Frame.OrthoWidth,
+			Frame.ViewportWidth / ((Frame.ViewportHeight > 0.0f) ? Frame.ViewportHeight : 1.0f),
+			Frame.RenderOptions.ViewportType == ELevelViewportType::FreeOrthographic);
 	}
 
 	// --- OverlayFont 패스: 스크린 공간 텍스트 ---

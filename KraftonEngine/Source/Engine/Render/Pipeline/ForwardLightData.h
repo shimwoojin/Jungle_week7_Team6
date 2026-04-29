@@ -73,13 +73,23 @@ struct FShadowInfo
 	uint32   Type;
 	uint32   ArrayIndex;
 	uint32   LightIndex;
-	uint32   Padding0;
+	uint32   bIsPSM;
+
+	uint32   CubeTierIndex;
+	uint32   _padShadowInfo[3];
 
 	FShadowMatrixGPU LightVP;
 	FVector4 SampleData;
+	FVector4 ShadowParams; // x = Bias, y = SlopeBias, z = Sharpen, w = NearZ
 };
 static_assert(sizeof(FShadowInfo) % 16 == 0, "FShadowInfo must be 16-byte aligned for StructuredBuffer");
-static_assert(sizeof(FShadowInfo) == 96, "FShadowInfo size mismatch with HLSL");
+static_assert(sizeof(FShadowInfo) == 128, "FShadowInfo size mismatch with HLSL");
+
+namespace EShadowInfoType
+{
+	constexpr uint32 Atlas2D = 0;
+	constexpr uint32 CubeMap = 1;
+}
 
 // Point/Spot 통합 POD — StructuredBuffer<FLightInfo> (t8)
 // GPU는 LightType으로 분기, CPU는 다형성(ToGPULightInfo)으로 채움
@@ -138,10 +148,15 @@ struct FLightingCBData
 	uint32  LightCullingMode;                  //  4B  | offset 128
 	uint32  VisualizeLightCulling;             //  4B  | offset 132
 	float   HeatMapMax;                        //  4B  | offset 136
-	uint32  _padFlags[1];                      //  4B  | offset 140 → 합계 144B
+	uint32  ShadowMethod;                      //  4B  | offset 140
+
+	FShadowMatrixGPU CascadeMatrices[4];       // 256B | offset 144
+	FVector4 CascadeSplits;                    // 16B  | offset 400
+	uint32  NumCascades;                       // 4B   | offset 416
+	uint32  _pad2[3];                          // 12B  | offset 420
 };
 static_assert(sizeof(FLightingCBData) % 16 == 0, "FLightingCBData must be 16-byte aligned");
-static_assert(sizeof(FLightingCBData) == 144, "FLightingCBData size mismatch with HLSL");
+static_assert(sizeof(FLightingCBData) == 432, "FLightingCBData size mismatch with HLSL");
 
 // =============================================================================
 // Tile-based Light Culling 상수

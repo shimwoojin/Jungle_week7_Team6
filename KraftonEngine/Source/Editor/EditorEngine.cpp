@@ -3,6 +3,7 @@
 #include "Engine/Runtime/WindowsWindow.h"
 #include "Engine/Serialization/SceneSaveManager.h"
 #include "Component/CameraComponent.h"
+#include "Component/Light/LightComponentBase.h"
 #include "GameFramework/World.h"
 #include "Editor/EditorRenderPipeline.h"
 #include "Editor/Viewport/LevelEditorViewportClient.h"
@@ -107,6 +108,22 @@ UCameraComponent* UEditorEngine::GetCamera() const
 void UEditorEngine::RenderUI(float DeltaTime)
 {
 	MainPanel.Render(DeltaTime);
+}
+
+void UEditorEngine::NotifyLightComponentChanged(ULightComponentBase* LightComponent)
+{
+	if (!LightComponent)
+	{
+		return;
+	}
+
+	for (FLevelEditorViewportClient* ViewportClient : ViewportLayout.GetLevelViewportClients())
+	{
+		if (ViewportClient)
+		{
+			ViewportClient->OnLightComponentChanged(LightComponent);
+		}
+	}
 }
 
 // ─── PIE (Play In Editor) ────────────────────────────────

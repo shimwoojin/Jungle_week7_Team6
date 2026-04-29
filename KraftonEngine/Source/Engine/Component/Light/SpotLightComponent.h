@@ -5,6 +5,7 @@ class USpotLightComponent : public UPointLightComponent
 {
 public:
 	DECLARE_CLASS(USpotLightComponent, UPointLightComponent)
+	USpotLightComponent();
 	virtual void ContributeSelectedVisuals(FScene& Scene) const override;
 	virtual void PushToScene() override;
 	virtual void DestroyFromScene() override;
@@ -13,6 +14,8 @@ public:
 
 	virtual FShadowHandleSet* GetShadowHandleSet() override;
 	FShadowMapKey GetShadowMapKey() override;
+	float GetInnerConeAngle() const { return InnerConeAngle; }
+	float GetOuterConeAngle() const { return OuterConeAngle; }
 
 protected:
 	float InnerConeAngle = 20.0f;	// Inner Cone Angle in degrees

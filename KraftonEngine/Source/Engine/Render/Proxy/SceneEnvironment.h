@@ -29,12 +29,14 @@ public:
 	void AddGlobalAmbientLight(const UAmbientLightComponent* Owner, const FGlobalAmbientLightParams& Params);
 	void RemoveGlobalAmbientLight(const UAmbientLightComponent* Owner);
 	bool HasGlobalAmbientLight() const { return !AmbientLights.empty(); }
+	uint32 GetNumAmbientLights() const { return static_cast<uint32>(AmbientLights.size()); }
 	const FGlobalAmbientLightParams& GetGlobalAmbientLightParams() const { return AmbientLights[0].Params; }
 
 	// --- Global Directional Light (배열 관리, 렌더링은 [0]만 사용) ---
 	void AddGlobalDirectionalLight(const UDirectionalLightComponent* Owner, const FGlobalDirectionalLightParams& Params);
 	void RemoveGlobalDirectionalLight(const UDirectionalLightComponent* Owner);
 	bool HasGlobalDirectionalLight() const { return !DirectionalLights.empty(); }
+	uint32 GetNumDirectionalLights() const { return static_cast<uint32>(DirectionalLights.size()); }
 	const FGlobalDirectionalLightParams& GetGlobalDirectionalLightParams() const { return DirectionalLights[0].Params; }
 	const UDirectionalLightComponent* GetGlobalDirectionalLightOwner() const { return DirectionalLights.empty() ? nullptr : DirectionalLights[0].Owner; }
 

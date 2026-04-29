@@ -1,13 +1,16 @@
 ﻿#include "RenderResources.h"
 #include "Render/Device/D3DDevice.h"
-#include "Render/Resource/TexturePool/TextureAtalsPool.h"
+#include "Render/Resource/TexturePool/TextureAtlasPool.h"
+#include "Render/Resource/TexturePool/TextureCubeShadowPool.h"
 #include "Materials/MaterialManager.h"
 #include "Render/Pipeline/ForwardLightData.h"
 #include "Render/Pipeline/FrameContext.h"
 #include "Render/Proxy/FScene.h"
 #include "Engine/Runtime/Engine.h"
+#include "Core/Log.h"
 #include "Profiling/Timer.h"
 #include <cstring>
+#include "Settings/EditorSettings.h"
 
 //헤더에 선언된 함수들이 이동해서 변경량이 많아 보일 뿐임
 //추가된 부분은 FShadowInfoResource밖에 없고 나머지 녀석들 변경점은 Structured Buffer에 넘길 내용 채워주기 추가됨
@@ -339,6 +342,17 @@ void FSystemResources::UpdateLightBuffer(FD3DDevice& Device, const FScene& Scene
 	GlobalLightingData.NumTilesX = TileCullingResource.TileCountX;
 	GlobalLightingData.NumTilesY = TileCullingResource.TileCountY;
 
+	if (ShadowBindingData)
+	{
+		GlobalLightingData.ShadowMethod = ShadowBindingData->ShadowMethod;
+		GlobalLightingData.NumCascades = ShadowBindingData->NumCascades;
+		GlobalLightingData.CascadeSplits = ShadowBindingData->CascadeSplits;
+		for (uint32 i = 0; i < 4; ++i)
+		{
+			GlobalLightingData.CascadeMatrices[i] = ShadowBindingData->CascadeMatrices[i];
+		}
+	}
+
 	LightingConstantBuffer.Update(Ctx, &GlobalLightingData, sizeof(FLightingCBData));
 	ID3D11Buffer* b4 = LightingConstantBuffer.GetBuffer();
 	Ctx->VSSetConstantBuffers(ECBSlot::Lighting, 1, &b4);
@@ -389,22 +403,37 @@ void FSystemResources::UnbindTileCullingBuffers(FD3DDevice& Device)
 	Ctx->CSSetShaderResources(ELightTexSlot::TileLightIndices, 2, NullSRVs);
 }
 
-void FSystemResources::BindShadowResources(FD3DDevice& Device)
+void FSystemResources::BindShadowResources(FD3DDevice& Device, FTextureAtlasPool& AtlasPool)
 {
 	ID3D11DeviceContext* Ctx = Device.GetDeviceContext();
 	ID3D11ShaderResourceView* ShadowInfoSRV = ShadowInfos.SRV;
-	ID3D11ShaderResourceView* ShadowAtlasSRV = FTextureAtlasPool::Get().GetSRV();
-	ID3D11ShaderResourceView* ShadowCubeSRV = nullptr;
+	ID3D11ShaderResourceView* ShadowAtlasSRV = AtlasPool.IsVSMMode()
+		? AtlasPool.GetFilteredSRV()
+		: AtlasPool.GetSRV();
+	ID3D11ShaderResourceView* ShadowCubeSRVs[FTextureCubeShadowPool::TierCount] =
+	{
+		FTextureCubeShadowPool::Get().GetSRV(0),
+		FTextureCubeShadowPool::Get().GetSRV(1),
+		FTextureCubeShadowPool::Get().GetSRV(2),
+		FTextureCubeShadowPool::Get().GetSRV(3)
+	};
+
 	Ctx->PSSetShaderResources(ESystemTexSlot::ShadowInfos, 1, &ShadowInfoSRV);
 	Ctx->PSSetShaderResources(ESystemTexSlot::ShadowAtlasArray, 1, &ShadowAtlasSRV);
-	Ctx->PSSetShaderResources(ESystemTexSlot::ShadowCubeArray, 1, &ShadowCubeSRV);
+	Ctx->PSSetShaderResources(ESystemTexSlot::ShadowCubeArrayTier0, FTextureCubeShadowPool::TierCount, ShadowCubeSRVs);
+	static const FTextureAtlasPool* LastBindLoggedPool = nullptr;
+	if (LastBindLoggedPool != &AtlasPool)
+	{
+		LastBindLoggedPool = &AtlasPool;
+		UE_LOG("[ShadowAtlas] Bind SRV Pool=%p", static_cast<void*>(&AtlasPool));
+	}
 }
 
 void FSystemResources::UnbindShadowResources(FD3DDevice& Device)
 {
 	ID3D11DeviceContext* Ctx = Device.GetDeviceContext();
-	ID3D11ShaderResourceView* NullSRVs[3] = {};
-	Ctx->PSSetShaderResources(ESystemTexSlot::ShadowInfos, 3, NullSRVs);
+	ID3D11ShaderResourceView* NullSRVs[2 + FTextureCubeShadowPool::TierCount] = {};
+	Ctx->PSSetShaderResources(ESystemTexSlot::ShadowInfos, 2 + FTextureCubeShadowPool::TierCount, NullSRVs);
 }
 
 void FSystemResources::BindSystemSamplers(FD3DDevice& Device)

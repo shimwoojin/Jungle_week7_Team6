@@ -52,6 +52,52 @@ namespace
 		if (AY >= AX && AY >= AZ) return 1;
 		return 2;
 	}
+
+	float Dot(const FVector& A, const FVector& B)
+	{
+		return (A.X * B.X) + (A.Y * B.Y) + (A.Z * B.Z);
+	}
+
+	void ExpandProjectedOrthoBounds(
+		int N, int A0, int A1,
+		const FVector& CameraPosition,
+		const FVector& CameraForward,
+		const FVector& CameraRight,
+		const FVector& CameraUp,
+		float OrthoWidth,
+		float ViewAspect,
+		float& InOutMin0, float& InOutMax0,
+		float& InOutMin1, float& InOutMax1)
+	{
+		const float ForwardAlongNormal = Comp(CameraForward, N);
+		if (std::fabs(ForwardAlongNormal) <= 1e-4f || OrthoWidth <= 0.0f || ViewAspect <= 0.0f)
+		{
+			return;
+		}
+
+		const float HalfWidth = OrthoWidth * 0.5f;
+		const float HalfHeight = HalfWidth / ViewAspect;
+		const float PlaneOffset = 0.0f;
+
+		const FVector CornerOffsets[4] = {
+			CameraRight * -HalfWidth + CameraUp * -HalfHeight,
+			CameraRight * -HalfWidth + CameraUp *  HalfHeight,
+			CameraRight *  HalfWidth + CameraUp * -HalfHeight,
+			CameraRight *  HalfWidth + CameraUp *  HalfHeight,
+		};
+
+		for (const FVector& Offset : CornerOffsets)
+		{
+			const FVector RayOrigin = CameraPosition + Offset;
+			const float T = (PlaneOffset - Comp(RayOrigin, N)) / ForwardAlongNormal;
+			const FVector Projected = RayOrigin + CameraForward * T;
+
+			InOutMin0 = std::min(InOutMin0, Comp(Projected, A0));
+			InOutMax0 = std::max(InOutMax0, Comp(Projected, A0));
+			InOutMin1 = std::min(InOutMin1, Comp(Projected, A1));
+			InOutMax1 = std::max(InOutMax1, Comp(Projected, A1));
+		}
+	}
 }
 
 void FLineGeometry::Create(ID3D11Device* InDevice)
@@ -116,12 +162,62 @@ void FLineGeometry::AddAABB(const FBoundingBox& Box, const FColor& InColor)
 }
 
 void FLineGeometry::AddWorldHelpers(const FShowFlags& ShowFlags, float GridSpacing, int32 GridHalfLineCount,
-	const FVector& CameraPosition, const FVector& CameraForward, bool bIsOrtho)
+	const FVector& CameraPosition, const FVector& CameraForward, const FVector& CameraRight, const FVector& CameraUp,
+	bool bIsOrtho, float OrthoWidth, float ViewAspect, bool bUseCameraPlaneGrid)
 {
 	const float Spacing = GridSpacing;
 	const int32 BaseHalfCount = std::max(GridHalfLineCount, 1);
 
 	if (Spacing <= 0.0f) return;
+
+	if (bUseCameraPlaneGrid && bIsOrtho && OrthoWidth > 0.0f && ViewAspect > 0.0f)
+	{
+		const float HalfWidth = OrthoWidth * 0.5f;
+		const float HalfHeight = HalfWidth / ViewAspect;
+		const float GridPadding = std::max(Spacing * 2.0f, 1.0f);
+
+		const float CameraU = Dot(CameraPosition, CameraRight);
+		const float CameraV = Dot(CameraPosition, CameraUp);
+		const float MinU = CameraU - HalfWidth - GridPadding;
+		const float MaxU = CameraU + HalfWidth + GridPadding;
+		const float MinV = CameraV - HalfHeight - GridPadding;
+		const float MaxV = CameraV + HalfHeight + GridPadding;
+
+		const float StartU = std::floor(MinU / Spacing) * Spacing;
+		const float EndU = std::ceil(MaxU / Spacing) * Spacing;
+		const float StartV = std::floor(MinV / Spacing) * Spacing;
+		const float EndV = std::ceil(MaxV / Spacing) * Spacing;
+
+		const FVector PlaneCenter = CameraPosition;
+		const FVector4 GridColor = FColor::Gray().ToVector4();
+
+		if (ShowFlags.bGrid)
+		{
+			for (float V = StartV; V <= EndV + (Spacing * 0.5f); V += Spacing)
+			{
+				const FVector Start = PlaneCenter
+					+ CameraRight * (StartU - CameraU)
+					+ CameraUp * (V - CameraV);
+				const FVector End = PlaneCenter
+					+ CameraRight * (EndU - CameraU)
+					+ CameraUp * (V - CameraV);
+				AddLine(Start, End, GridColor);
+			}
+
+			for (float U = StartU; U <= EndU + (Spacing * 0.5f); U += Spacing)
+			{
+				const FVector Start = PlaneCenter
+					+ CameraRight * (U - CameraU)
+					+ CameraUp * (StartV - CameraV);
+				const FVector End = PlaneCenter
+					+ CameraRight * (U - CameraU)
+					+ CameraUp * (EndV - CameraV);
+				AddLine(Start, End, GridColor);
+			}
+		}
+
+		return;
+	}
 
 	int N = 2;
 	if (bIsOrtho)
@@ -136,13 +232,22 @@ void FLineGeometry::AddWorldHelpers(const FShowFlags& ShowFlags, float GridSpaci
 	const float Center0 = SnapToGrid(Comp(CameraPosition, A0), Spacing);
 	const float Center1 = SnapToGrid(Comp(CameraPosition, A1), Spacing);
 	const float CameraNormalDist = Comp(CameraPosition, N) - PlaneOffset;
-	const int32 DynamicHalfCount = ComputeDynamicHalfCount(Spacing, BaseHalfCount, CameraNormalDist);
+	int32 DynamicHalfCount = ComputeDynamicHalfCount(Spacing, BaseHalfCount, CameraNormalDist);
 	const float BaseGridExtent = Spacing * static_cast<float>(DynamicHalfCount);
 
-	const float Min0 = Center0 - BaseGridExtent;
-	const float Max0 = Center0 + BaseGridExtent;
-	const float Min1 = Center1 - BaseGridExtent;
-	const float Max1 = Center1 + BaseGridExtent;
+	float Min0 = Center0 - BaseGridExtent;
+	float Max0 = Center0 + BaseGridExtent;
+	float Min1 = Center1 - BaseGridExtent;
+	float Max1 = Center1 + BaseGridExtent;
+
+	if (bIsOrtho)
+	{
+		ExpandProjectedOrthoBounds(
+			N, A0, A1,
+			CameraPosition, CameraForward, CameraRight, CameraUp,
+			OrthoWidth, ViewAspect,
+			Min0, Max0, Min1, Max1);
+	}
 
 	const int32 Min0Idx = static_cast<int32>(std::floor((Min0 - Center0) / Spacing));
 	const int32 Max0Idx = static_cast<int32>(std::ceil((Max0 - Center0) / Spacing));

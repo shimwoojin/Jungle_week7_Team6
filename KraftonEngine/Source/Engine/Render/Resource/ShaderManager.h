@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Core/Singleton.h"
 #include "Render/Resource/Shader.h"
@@ -63,36 +63,57 @@ namespace std
 
 namespace EShaderPath
 {
-	inline constexpr const char* Primitive = "Shaders/Geometry/Primitive.hlsl";
-	inline constexpr const char* UberLit = "Shaders/Geometry/UberLit.hlsl";
-	inline constexpr const char* Decal = "Shaders/Geometry/Decal.hlsl";
-	inline constexpr const char* ShadowDepth = "Shaders/Geometry/ShadowDepth.hlsl";
-	inline constexpr const char* ShadowClear = "Shaders/Geometry/ShadowClear.hlsl";
+	inline constexpr const char* Primitive			= "Shaders/Geometry/Primitive.hlsl";
+	inline constexpr const char* UberLit			= "Shaders/Geometry/UberLit.hlsl";
+	inline constexpr const char* Decal				= "Shaders/Geometry/Decal.hlsl";
+	inline constexpr const char* ShadowDepth		= "Shaders/Geometry/ShadowDepth.hlsl";
+	inline constexpr const char* ShadowClear		= "Shaders/Geometry/ShadowClear.hlsl";
+	inline constexpr const char* ShadowDepthDebug	= "Shaders/Editor/ShadowDepthDebug.hlsl";
 
-	inline constexpr const char* Editor = "Shaders/Editor/Editor.hlsl";
-	inline constexpr const char* Gizmo = "Shaders/Editor/Gizmo.hlsl";
+	inline constexpr const char* Editor				= "Shaders/Editor/Editor.hlsl";
+	inline constexpr const char* Gizmo				= "Shaders/Editor/Gizmo.hlsl";
 
-	inline constexpr const char* FXAA = "Shaders/PostProcess/FXAA.hlsl";
-	inline constexpr const char* Outline = "Shaders/PostProcess/Outline.hlsl";
-	inline constexpr const char* SceneDepth = "Shaders/PostProcess/SceneDepth.hlsl";
-	inline constexpr const char* SceneNormal = "Shaders/PostProcess/SceneNormal.hlsl";
-	inline constexpr const char* HeightFog = "Shaders/PostProcess/HeightFog.hlsl";
-	inline constexpr const char* LightCulling = "Shaders/PostProcess/LightCulling.hlsl";
+	inline constexpr const char* FXAA				= "Shaders/PostProcess/FXAA.hlsl";
+	inline constexpr const char* Gaussianblur		= "Shaders/PostProcess/GaussianBlur.hlsl";
+	inline constexpr const char* Outline			= "Shaders/PostProcess/Outline.hlsl";
+	inline constexpr const char* SceneDepth			= "Shaders/PostProcess/SceneDepth.hlsl";
+	inline constexpr const char* SceneNormal		= "Shaders/PostProcess/SceneNormal.hlsl";
+	inline constexpr const char* HeightFog			= "Shaders/PostProcess/HeightFog.hlsl";
+	inline constexpr const char* LightCulling		= "Shaders/PostProcess/LightCulling.hlsl";
 
-	inline constexpr const char* Font = "Shaders/UI/Font.hlsl";
-	inline constexpr const char* OverlayFont = "Shaders/UI/OverlayFont.hlsl";
-	inline constexpr const char* SubUV = "Shaders/UI/SubUV.hlsl";
-	inline constexpr const char* Billboard = "Shaders/UI/Billboard.hlsl";
+	inline constexpr const char* Font				= "Shaders/UI/Font.hlsl";
+	inline constexpr const char* OverlayFont		= "Shaders/UI/OverlayFont.hlsl";
+	inline constexpr const char* SubUV				= "Shaders/UI/SubUV.hlsl";
+	inline constexpr const char* Billboard			= "Shaders/UI/Billboard.hlsl";
 }
 
 namespace EUberLitDefines
 {
-	inline const D3D_SHADER_MACRO Default[] = { {"LIGHTING_MODEL_PHONG", "1"}, {nullptr, nullptr} };
-	inline const D3D_SHADER_MACRO Unlit[] = { {"LIGHTING_MODEL_UNLIT", "1"}, {nullptr, nullptr} };
-	inline const D3D_SHADER_MACRO Gouraud[] = { {"LIGHTING_MODEL_GOURAUD", "1"}, {nullptr, nullptr} };
-	inline const D3D_SHADER_MACRO Lambert[] = { {"LIGHTING_MODEL_LAMBERT", "1"}, {nullptr, nullptr} };
-	inline const D3D_SHADER_MACRO Phong[] = { {"LIGHTING_MODEL_PHONG", "1"}, {nullptr, nullptr} };
-	inline const D3D_SHADER_MACRO Toon[] = { {"LIGHTING_MODEL_TOON", "1"}, {nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO Default[]		= { {"LIGHTING_MODEL_PHONG",	"1"},								{nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO Unlit[]		= { {"LIGHTING_MODEL_UNLIT",	"1"},								{nullptr, nullptr} };
+
+	// Hard Shadow
+	inline const D3D_SHADER_MACRO Gouraud[]		= { {"LIGHTING_MODEL_GOURAUD",	"1"},								{nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO Lambert[]		= { {"LIGHTING_MODEL_LAMBERT",	"1"},								{nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO Phong[]		= { {"LIGHTING_MODEL_PHONG",	"1"},								{nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO Toon[]		= { {"LIGHTING_MODEL_TOON",		"1"},								{nullptr, nullptr} };
+
+	// PCF
+	inline const D3D_SHADER_MACRO GouraudPCF[]	= { {"LIGHTING_MODEL_GOURAUD",	"1"},	{"SHADOW_ENABLE_PCF", "1"},	{nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO LambertPCF[]	= { {"LIGHTING_MODEL_LAMBERT",	"1"},	{"SHADOW_ENABLE_PCF", "1"}, {nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO PhongPCF[]	= { {"LIGHTING_MODEL_PHONG",	"1"},	{"SHADOW_ENABLE_PCF", "1"}, {nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO ToonPCF[]		= { {"LIGHTING_MODEL_TOON",		"1"},	{"SHADOW_ENABLE_PCF", "1"}, {nullptr, nullptr} };
+
+	// VSM
+	inline const D3D_SHADER_MACRO GouraudVSM[]	= { {"LIGHTING_MODEL_GOURAUD",	"1"},	{"SHADOW_ENABLE_VSM", "1"}, {nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO LambertVSM[]	= { {"LIGHTING_MODEL_LAMBERT",	"1"},	{"SHADOW_ENABLE_VSM", "1"}, {nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO PhongVSM[]	= { {"LIGHTING_MODEL_PHONG",	"1"},	{"SHADOW_ENABLE_VSM", "1"}, {nullptr, nullptr} };
+	inline const D3D_SHADER_MACRO ToonVSM[]		= { {"LIGHTING_MODEL_TOON",		"1"},	{"SHADOW_ENABLE_VSM", "1"}, {nullptr, nullptr} };
+}
+// Shadow Pass에서 사용하는 매크로
+namespace EShadowPassDefines
+{
+	inline const D3D_SHADER_MACRO VSM[]			= { {"SHADOW_ENABLE_VSM",		"1"},								{nullptr, nullptr} };
 }
 
 // 셰이더별 저장된 매크로 정보 (핫 리로드 시 재컴파일에 사용)

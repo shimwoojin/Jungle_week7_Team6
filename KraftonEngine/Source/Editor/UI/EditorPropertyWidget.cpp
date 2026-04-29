@@ -6,6 +6,8 @@
 #include "ImGui/imgui.h"
 #include "Component/GizmoComponent.h"
 #include "Component/Light/LightComponent.h"
+#include "Component/Light/PointLightComponent.h"
+#include "Component/Light/AmbientLightComponent.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/StaticMeshComponent.h"
 #include "Component/SceneComponent.h"
@@ -25,6 +27,8 @@
 #include <iterator>
 
 #include "Materials/MaterialManager.h"
+
+#include "EditorShadowPropertyWidget.h"
 
 #define SEPARATOR(); ImGui::Spacing(); ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing(); ImGui::Spacing();
 
@@ -545,7 +549,7 @@ void FEditorPropertyWidget::RenderComponentProperties(AActor* Actor, const TArra
 		static_cast<USceneComponent*>(SelectedComponent)->MarkTransformDirty();
 	}
 
-	if (SelectedComponent && SelectedComponent->IsA<ULightComponent>())
+	if (SelectedComponent && (SelectedComponent->IsA<ULightComponent>() && !SelectedComponent->IsA<UAmbientLightComponent>()))
 	{
 		ImGui::Separator();
 		RenderLightShadowSettings(static_cast<ULightComponent*>(SelectedComponent));
@@ -571,13 +575,14 @@ void FEditorPropertyWidget::RenderLightShadowSettings(ULightComponent* LightComp
 	ImGui::Text("Shadow");
 	ImGui::Spacing();
 
-	static constexpr int32 ResolutionOptions[] = { 512, 1024, 2048, 4096 };
-	static constexpr const char* ResolutionLabels[] = { "512", "1024", "2048", "4096" };
+	static constexpr int32 ResolutionOptions[] = { 256, 512, 1024, 2048 };
+	static constexpr const char* ResolutionLabels[] = { "256", "512", "1024", "2048" };
+	static constexpr float ResolutionScales[] = { 0.25f, 0.5f, 1.0f, 2.0f };
 
-	int32 ResolutionIndex = 1;
+	int32 ResolutionIndex = 2;
 	for (int32 Index = 0; Index < static_cast<int32>(std::size(ResolutionOptions)); ++Index)
 	{
-		if (RenderOptions.ShadowMapResolution == ResolutionOptions[Index])
+		if (LightComponent->GetShadowResolutionScale() <= ResolutionScales[Index])
 		{
 			ResolutionIndex = Index;
 			break;
@@ -588,10 +593,12 @@ void FEditorPropertyWidget::RenderLightShadowSettings(ULightComponent* LightComp
 	{
 		for (int32 Index = 0; Index < static_cast<int32>(std::size(ResolutionOptions)); ++Index)
 		{
-			const bool bSelected = (RenderOptions.ShadowMapResolution == ResolutionOptions[Index]);
+			const bool bSelected = (ResolutionIndex == Index);
 			if (ImGui::Selectable(ResolutionLabels[Index], bSelected))
 			{
+				LightComponent->SetShadowResolutionScale(ResolutionScales[Index]);
 				RenderOptions.ShadowMapResolution = ResolutionOptions[Index];
+				ResolutionIndex = Index;
 			}
 			if (bSelected)
 			{
@@ -601,24 +608,59 @@ void FEditorPropertyWidget::RenderLightShadowSettings(ULightComponent* LightComp
 		ImGui::EndCombo();
 	}
 
-	bool bOverrideCamera = RenderOptions.bOverrideCameraWithSelectedLight;
-	if (ImGui::Checkbox("Override camera with light's perspective", &bOverrideCamera))
+	bool bCastShadow = LightComponent->IsCastShadow();
+	if (ImGui::Checkbox("Cast Shadow", &bCastShadow))
 	{
-		RenderOptions.bOverrideCameraWithSelectedLight = bOverrideCamera;
+		LightComponent->SetCastShadow(bCastShadow);
 	}
 
-	ImGui::BeginDisabled(true);
-	ImGui::Text("Shadow Filter: %s",
-		RenderOptions.ShadowFilterMode == EShadowFilterMode::VSM ? "VSM" : "PCF");
-	ImGui::EndDisabled();
+	float ShadowBias = LightComponent->GetShadowBias();
+	if (ImGui::DragFloat("Shadow Bias", &ShadowBias, 0.001f, 0.0f, 1.0f, "%.3f"))
+	{
+		LightComponent->SetShadowBias(ShadowBias);
+	}
 
-	ImGui::Spacing();
+	float ShadowSlopeBias = LightComponent->GetShadowSlopeBias();
+	if (ImGui::DragFloat("Shadow Slope Bias", &ShadowSlopeBias, 0.001f, 0.0f, 1.0f, "%.3f"))
+	{
+		LightComponent->SetShadowSlopeBias(ShadowSlopeBias);
+	}
+
+	float ShadowSharpen = LightComponent->GetShadowSharpen();
+	if (ImGui::DragFloat("Shadow Sharpen", &ShadowSharpen, 0.01f, 0.0f, 1.0f, "%.2f"))
+	{
+		LightComponent->SetShadowSharpen(ShadowSharpen);
+	}
+
+	FEditorShadowPropertyWidget::Get().ShowShadowProperty(LightComponent);
+
+	static constexpr const char* MethodLabels[] = { "Standard", "PSM", "CSM" };
+	int32 MethodIndex = static_cast<int32>(RenderOptions.ShadowMethod);
+	if (MethodIndex < 0 || MethodIndex > 2) MethodIndex = 0; // Fix bounds
+	if (ImGui::BeginCombo("Shadow Method", MethodLabels[MethodIndex]))
+	{
+		for (int32 Index = 0; Index < 3; ++Index)
+		{
+			const bool bSelected = (MethodIndex == Index);
+			if (ImGui::Selectable(MethodLabels[Index], bSelected))
+			{
+				RenderOptions.ShadowMethod = static_cast<EShadowMethod>(Index);
+			}
+			if (bSelected)
+			{
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	/*ImGui::Spacing();
 	ImGui::Text("PSM Depth Map");
 	ImGui::BeginChild("##PSMDepthPreview", ImVec2(0.0f, 180.0f), true);
 	ImGui::TextDisabled("Preview will appear here after the PSM pass is wired.");
 	ImGui::TextDisabled("Current light: %s", LightComponent->GetClass()->GetName());
 	ImGui::TextDisabled("CastShadow: %s", LightComponent->IsCastShadow() ? "On" : "Off");
-	ImGui::EndChild();
+	ImGui::EndChild();*/
 }
 
 void FEditorPropertyWidget::PropagatePropertyChange(const FString& PropName, const TArray<AActor*>& SelectedActors)

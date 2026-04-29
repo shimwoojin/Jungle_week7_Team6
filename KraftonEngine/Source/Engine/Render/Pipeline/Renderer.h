@@ -14,6 +14,7 @@
 #include "Render/Resource/RenderResources.h"
 #include "Render/Culling/TileBasedLightCulling.h"
 #include "Render/Culling/ClusteredLightCuller.h"
+#include <wrl/client.h>
 
 class FScene;
 
@@ -50,13 +51,34 @@ public:
 	void UnbindClusterCullingResources();
 
 private:
+	enum class EShadowRenderTargetType
+	{
+		Atlas2D,
+		CubeFace
+	};
+
 	//ShadowMap 렌더링에 필요한 정보 담는 녀석
 	struct FShadowRenderTask
 	{
+		template<typename T>
+		using TComPtr = Microsoft::WRL::ComPtr<T>;
+
+		EShadowRenderTargetType TargetType = EShadowRenderTargetType::Atlas2D;
 		FMatrix LightVP = FMatrix::Identity;
 		FConvexVolume ShadowFrustum;
 		D3D11_VIEWPORT Viewport = {};
-		ID3D11DepthStencilView* DSV = nullptr;
+		TComPtr<ID3D11DepthStencilView> DSV;
+		TComPtr<ID3D11RenderTargetView> RTV;
+		uint32 AtlasSliceIndex = static_cast<uint32>(-1);
+		uint32 CubeIndex = static_cast<uint32>(-1);
+		uint32 CubeTierIndex = static_cast<uint32>(-1);
+		uint32 CubeFaceIndex = 0;
+		FMatrix CameraVP = FMatrix::Identity;
+		float ShadowDepthBias = 0.0f;
+		float ShadowSlopeBias = 0.0f;
+		bool bIsPSM = false;
+		bool bPSMFlipNegativeW = false;
+		bool bCullWithShadowFrustum = true;
 	};
 
 	//ShadowMap 렌더링에 필요한 정보 담는 녀석들을 담는 녀석
@@ -64,10 +86,18 @@ private:
 	{
 		FShadowFrameBindingData BindingData;
 		TArray<FShadowRenderTask> RenderTasks;
+		TArray<FEditorDebugLine> DebugLines;
 	};
 
-	void BuildShadowPassData(const FFrameContext& Frame, const FScene& Scene, FShadowPassData& OutShadowPassData);
-	void RenderShadowPass(const FFrameContext& Frame, const FScene& Scene, const FShadowPassData& ShadowPassData);
+	struct FVSMBlurRegion
+	{
+		uint32 SliceIndex = static_cast<uint32>(-1);
+		D3D11_BOX Box = {};
+	};
+
+	void BuildShadowPassData(const FFrameContext& Frame, FScene& Scene, FShadowPassData& OutShadowPassData);
+	void RenderShadowPass(const FFrameContext& Frame, FScene& Scene, const FShadowPassData& ShadowPassData);
+	void RenderVSMBlurPass(FTextureAtlasPool& AtlasPool, const FShadowPassData& ShadowPassData);
 	void CleanupPassState(FStateCache& Cache);
 
 private:
@@ -78,7 +108,9 @@ private:
 	FPassRenderStateTable PassRenderStateTable;
 	FPassEventBuilder PassEventBuilder;
 	FConstantBuffer ShadowPassBuffer;
+	FConstantBuffer VSMBlurPassBuffer;
 
 	FTileBasedLightCulling TileBasedCulling;
 	FClusteredLightCuller ClusteredLightCuller;
+	uint64 ShadowAtlasFrameIndex = 1;
 };

@@ -27,7 +27,8 @@ public:
 	void AddLine(const FVector& Start, const FVector& End, const FVector4& StartColor, const FVector4& EndColor);
 	void AddAABB(const FBoundingBox& Box, const FColor& Color);
 	void AddWorldHelpers(const FShowFlags& ShowFlags, float GridSpacing, int32 GridHalfLineCount,
-		const FVector& CameraPosition, const FVector& CameraForward, bool bIsOrtho = false);
+		const FVector& CameraPosition, const FVector& CameraForward, const FVector& CameraRight, const FVector& CameraUp,
+		bool bIsOrtho = false, float OrthoWidth = 0.0f, float ViewAspect = 1.0f, bool bUseCameraPlaneGrid = false);
 
 	void Clear();
 

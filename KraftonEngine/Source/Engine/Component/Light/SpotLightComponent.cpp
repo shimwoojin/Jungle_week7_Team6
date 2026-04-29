@@ -7,6 +7,11 @@
 
 IMPLEMENT_CLASS(USpotLightComponent, UPointLightComponent)
 
+USpotLightComponent::USpotLightComponent()
+{
+	ShadowResolutionScale = 2.0f;
+}
+
 void USpotLightComponent::ContributeSelectedVisuals(FScene& Scene) const
 {
 	const FVector Apex = GetWorldLocation();
@@ -82,21 +87,12 @@ void USpotLightComponent::DestroyFromScene()
 
 FShadowHandleSet* USpotLightComponent::GetShadowHandleSet()
 {
-	if (!ShadowHandleSet || !ShadowHandleSet->bIsValid)
-	{
-		if (ShadowHandleSet)
-		{
-			ShadowHandleSet->Release();
-		}
-		ShadowHandleSet = FTextureAtlasPool::Get().GetTextureHandle(1024);
-	}
 	return ShadowHandleSet;
 }
 
 FShadowMapKey USpotLightComponent::GetShadowMapKey()
 {
 	FShadowMapKey Result;
-	Result.Atlas = FTextureAtlasPool::Get().GetAtlasUVArray(ShadowHandleSet);
 	return Result;
 }
 

@@ -27,6 +27,10 @@ public:
 	// Texture
 	static void AddTextureMemory(uint64 Size) { TextureMemory += Size; }
 	static void SubTextureMemory(uint64 Size) { TextureMemory -= Size; }
+	static void AddShadowAtlasMemory(uint64 Size) { ShadowAtlasMemory += Size; AddTextureMemory(Size); }
+	static void SubShadowAtlasMemory(uint64 Size) { ShadowAtlasMemory -= Size; SubTextureMemory(Size); }
+	static void AddShadowCubeMemory(uint64 Size) { ShadowCubeMemory += Size; AddTextureMemory(Size); }
+	static void SubShadowCubeMemory(uint64 Size) { ShadowCubeMemory -= Size; SubTextureMemory(Size); }
 
 	// GPU Buffer
 	static void AddVertexBufferMemory(uint64 Size) { VertexBufferMemory += Size; }
@@ -44,6 +48,8 @@ public:
 	static uint64 GetPixelShaderMemory() { return PixelShaderMemory; }
 	static uint64 GetVertexShaderMemory() { return VertexShaderMemory; }
 	static uint64 GetTextureMemory() { return TextureMemory; }
+	static uint64 GetShadowAtlasMemory() { return ShadowAtlasMemory; }
+	static uint64 GetShadowCubeMemory() { return ShadowCubeMemory; }
 	static uint64 GetVertexBufferMemory() { return VertexBufferMemory; }
 	static uint64 GetIndexBufferMemory() { return IndexBufferMemory; }
 	static uint64 GetStaticMeshCPUMemory() { return StaticMeshCPUMemory; }
@@ -56,6 +62,8 @@ private:
 	static uint64 PixelShaderMemory;
 	static uint64 VertexShaderMemory;
 	static uint64 TextureMemory;
+	static uint64 ShadowAtlasMemory;
+	static uint64 ShadowCubeMemory;
 	static uint64 VertexBufferMemory;
 	static uint64 IndexBufferMemory;
 	static uint64 StaticMeshCPUMemory;

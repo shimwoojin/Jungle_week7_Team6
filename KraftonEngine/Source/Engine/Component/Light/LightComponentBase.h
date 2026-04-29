@@ -10,9 +10,9 @@ public:
 
 	virtual void PushToScene() {};
 	virtual void DestroyFromScene() {};
-	virtual void OnTransformDirty() override { USceneComponent::OnTransformDirty(); PushToScene(); }
+	virtual void OnTransformDirty() override;
 	virtual void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
-	virtual void PostEditProperty(const char* PropertyName) override { USceneComponent::PostEditProperty(PropertyName); PushToScene(); }
+	virtual void PostEditProperty(const char* PropertyName) override;
 	virtual void CreateRenderState() override { PushToScene(); }
 	virtual void DestroyRenderState() override { DestroyFromScene(); }
 

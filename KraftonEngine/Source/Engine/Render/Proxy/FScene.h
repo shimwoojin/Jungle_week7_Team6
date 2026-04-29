@@ -4,6 +4,8 @@
 #include "Render/Proxy/PrimitiveSceneProxy.h"
 #include "Render/Proxy/SceneEnvironment.h"
 #include "Render/DebugDraw/DebugDrawQueue.h"
+#include "Render/Resource/TexturePool/TextureAtlasPool.h"
+#include "GameFramework/WorldContext.h"
 
 class AActor;
 class UPrimitiveComponent;
@@ -19,6 +21,10 @@ class FScene
 public:
 	FScene() = default;
 	~FScene();
+	FScene(const FScene&) = delete;
+	FScene& operator=(const FScene&) = delete;
+	FScene(FScene&&) = delete;
+	FScene& operator=(FScene&&) = delete;
 
 	// --- 프록시 등록/해제 ---
 	FPrimitiveSceneProxy* AddPrimitive(UPrimitiveComponent* Component);
@@ -73,6 +79,13 @@ public:
 	FSceneEnvironment& GetEnvironment() { return Environment; }
 	const FSceneEnvironment& GetEnvironment() const { return Environment; }
 
+	FTextureAtlasPool& GetShadowAtlasPool() { return ShadowAtlasPool; }
+	const FTextureAtlasPool& GetShadowAtlasPool() const { return ShadowAtlasPool; }
+	void InitializeShadowAtlas(ID3D11Device* Device, ID3D11DeviceContext* Context, uint32 AtlasSize = 4096);
+	bool IsShadowAtlasInitialized() const { return bShadowAtlasInitialized; }
+	void SetDebugWorldType(EWorldType InWorldType) { DebugWorldType = InWorldType; }
+	EWorldType GetDebugWorldType() const { return DebugWorldType; }
+
 private:
 	// --- 내부 헬퍼 (friend 경유로 Proxy private 멤버 접근) ---
 	static void EnqueueDirtyProxy(TArray<FPrimitiveSceneProxy*>& DirtyList, FPrimitiveSceneProxy* Proxy);
@@ -105,4 +118,7 @@ private:
 	FDebugDrawQueue DebugDrawQueue;
 
 	FSceneEnvironment Environment;
+	FTextureAtlasPool ShadowAtlasPool;
+	bool bShadowAtlasInitialized = false;
+	EWorldType DebugWorldType = EWorldType::Editor;
 };
